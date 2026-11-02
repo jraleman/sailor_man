@@ -17,11 +17,23 @@ var _reference: Array[Dictionary] = []
 var _evidence: Dictionary = {}
 var _duration := 6.0
 var _unit := 1.0
+var _falsetto_low := 700.0
+var _falsetto_high := 1300.0
+var _max_cents := MAX_CENTS
 
 
 ## Match physical guide labels and strokes to the surrounding responsive UI.
 func fit(unit: float) -> void:
 	_unit = unit
+	queue_redraw()
+
+
+## Guides describe the current source, not a human profile borrowed by Remo.
+func set_profile(profile: Dictionary) -> void:
+	assert(Frame.profile_error(profile).is_empty())
+	_falsetto_low = float(profile["falsetto_low"])
+	_falsetto_high = float(profile["falsetto_high"])
+	_max_cents = maxf(MAX_CENTS, _falsetto_high + 300.0)
 	queue_redraw()
 
 
@@ -45,14 +57,14 @@ func _draw() -> void:
 	var font := get_theme_default_font()
 	var font_size := roundi(12.0 * _unit)
 	var padding := PADDING * _unit
-	var stagger := _point(0.0, 700.0).y - _point(0.0, 1300.0).y \
+	var stagger := _point(0.0, _falsetto_low).y - _point(0.0, _falsetto_high).y \
 		< font.get_height(font_size) + 2.0 * _unit
-	for cents in [0.0, 700.0, 1300.0]:
+	for cents in [0.0, _falsetto_low, _falsetto_high]:
 		var y := _point(0.0, cents).y
 		draw_line(Vector2(padding, y), Vector2(size.x - padding, y), GUIDE, _unit)
 		var label := "%d cents" % cents
 		var x := padding + 4.0 * _unit
-		if stagger and cents == 700.0:
+		if stagger and cents == _falsetto_low:
 			x = size.x - padding - 4.0 * _unit \
 				- font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 		draw_string(
@@ -96,7 +108,7 @@ func _point(t: float, cents: float) -> Vector2:
 	return Vector2(
 		padding + clampf(t / _duration, 0.0, 1.0) * maxf(size.x - padding * 2.0, 0.0),
 		size.y - padding - clampf(
-			(cents - MIN_CENTS) / (MAX_CENTS - MIN_CENTS), 0.0, 1.0
+			(cents - MIN_CENTS) / (_max_cents - MIN_CENTS), 0.0, 1.0
 		) * maxf(size.y - padding * 2.0, 0.0)
 	)
 

@@ -9,6 +9,9 @@ const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const Tone = preload("res://games/sailor_man/audio/remo_tone.gd")
 const Cue = preload("res://games/sailor_man/audio/duel_audio.gd")
+const Calibration = preload("res://games/sailor_man/voice/voice_calibration.gd")
+const VoiceRest = preload("res://games/sailor_man/voice/voice_rest.gd")
+const Soundcheck = preload("res://games/sailor_man/ui/soundcheck.tscn")
 
 @onready var _spike: Control = %ScorerSpike
 @onready var _duel_hud: Control = %DuelHud
@@ -26,6 +29,13 @@ var _practice := false
 var _use_microphone := false
 var _message := ""
 var _duel_seconds := 0.0
+var voice_profile_path := Calibration.SAVE_PATH
+var _voice_profile: Dictionary = {}
+var _profile_name := ""
+var _profile_error := ""
+var _source_preference: int = Options.InputSource.AUTO
+var _soundcheck: Control
+var _voice_rest := VoiceRest.new()
 
 
 ## Keep the manifest and shell identity on the same stable key.
@@ -35,6 +45,7 @@ func game_id() -> String:
 
 ## Pausing disconnects capture rather than scoring audio accumulated in a menu.
 func open_pause_menu() -> void:
+	_close_soundcheck()
 	_spike.call("stop_capture")
 	_duel.cancel_player()
 	_stop_sounds()
@@ -52,30 +63,43 @@ func _build_playfield() -> void:
 	_spike.connect("duel_requested", _return_to_duel)
 	_spike.connect("duel_frames_ready", _on_duel_frames)
 	_spike.connect("duel_turn_cancelled", _on_turn_cancelled)
+	_spike.connect("soundcheck_requested", _open_soundcheck)
+	_spike.connect("microphone_failed", _on_microphone_failed)
+	_spike.connect("microphone_turn_completed", _on_microphone_turn_completed)
 	_duel_hud.connect("action_requested", _on_duel_action)
 	_duel_hud.connect("repeat_requested", _on_repeat)
 	_duel_hud.connect("source_requested", _on_source_requested)
+	_duel_hud.connect("auto_source_requested", _set_input_source.bind(Options.InputSource.AUTO))
+	_duel_hud.connect("soundcheck_requested", _open_soundcheck)
+	_duel_hud.connect("rest_dismissed", _on_rest_dismissed)
+	_duel_hud.connect("rest_remo_requested", _on_rest_remo)
 	_duel_hud.connect("practice_requested", _open_practice)
 	_duel_hud.connect("pause_requested", open_pause_menu)
 	_rival_tone = Tone.new()
 	add_child(_rival_tone)
 	_cue = Cue.new()
 	add_child(_cue)
+	_load_voice_profile()
 
 
 func _set_capture_inset(bottom: float) -> void:
 	_duel_hud.offset_bottom = -maxf(bottom, 0.0)
 	if _practice:
 		_spike.offset_bottom = -maxf(bottom, 0.0)
+	if is_instance_valid(_soundcheck):
+		_soundcheck.offset_bottom = -maxf(bottom, 0.0)
 
 
 func _reset_round_state() -> void:
+	_close_soundcheck()
 	_stop_sounds()
 	_spike.call("stop_capture")
 	_calls = 0
 	_duel_seconds = 0.0
 	_duel.reset(Settings.tunable_bool(Options.LONG_WINDOWS_KEY))
-	_duel_hud.call("show_track", _duel.call_track, _duel.call_track, {}, _duel.window_seconds)
+	_resolve_source()
+	_duel_hud.call("show_track", _duel.call_track, _duel.call_track, {},
+		_duel.window_seconds, Frame.profile())
 	_phase_seen = -1
 	_rival_elapsed = 0.0
 	_rival_index = 0
@@ -96,7 +120,7 @@ func _activate_round() -> void:
 
 
 func _update_round(delta: float, _time_left: float) -> void:
-	if _practice:
+	if _practice or is_instance_valid(_soundcheck):
 		return
 	var phase := _duel.phase
 	if phase not in [Duel.Phase.READY, Duel.Phase.COMPLETE]:
@@ -117,6 +141,7 @@ func _update_round(delta: float, _time_left: float) -> void:
 
 
 func _finish_round() -> void:
+	_close_soundcheck()
 	_spike.call("stop_capture")
 	_stop_sounds()
 	_spike.hide()
@@ -128,7 +153,7 @@ func _configure_mode_ui() -> void:
 	if is_instance_valid(_spike):
 		_spike.visible = _round_active
 	if is_instance_valid(_duel_hud):
-		_duel_hud.visible = _round_active and not _practice
+		_duel_hud.visible = _round_active and not _practice and _soundcheck == null
 	for player in GameSession.player_count():
 		var layout := player_stats_panel(player).get_node("Layout")
 		(layout.get_node("Stats") as Control).visible = _practice
@@ -326,7 +351,9 @@ func _show_last_turn() -> void:
 		reference = _duel.call_track
 	_duel_hud.call("show_track", _spike.get("_track")
 		if int(record["singer"]) == Duel.Singer.PLAYER else _rival["frames"],
-		reference, record["result"]["evidence"], _duel.window_seconds)
+		reference, record["result"]["evidence"], _duel.window_seconds,
+		_spike.get("_profile") if int(record["singer"]) == Duel.Singer.PLAYER
+			else Frame.profile())
 
 
 func _advance_rival(delta: float) -> void:
@@ -338,7 +365,7 @@ func _advance_rival(delta: float) -> void:
 	if _duel.turn == 1:
 		reference = _duel.call_track
 	_duel_hud.call("show_track", _rival_frames.slice(0, _rival_index),
-		reference, {}, _duel.window_seconds)
+		reference, {}, _duel.window_seconds, Frame.profile())
 	if _rival_index < _rival_frames.size():
 		return
 	_rival_tone.stop()
@@ -360,7 +387,7 @@ func _on_duel_frames(frames: Array[Dictionary]) -> void:
 	var error := _duel.observe_frames(frames)
 	if not error.is_empty():
 		_on_turn_cancelled(error)
-	elif _duel.close_requested:
+	elif _duel.silence_closed():
 		_spike.call("limit_duel_turn", _duel.accepted_frame_count())
 
 
@@ -382,17 +409,153 @@ func _on_repeat() -> void:
 func _on_source_requested(microphone: bool) -> void:
 	if _duel.phase not in [Duel.Phase.READY, Duel.Phase.PLAYER_READY]:
 		return
-	_use_microphone = microphone
-	_spike.call("configure_duel", true, microphone)
-	_message = "Microphone remains off until you explicitly enable it below." if microphone \
-		else "Remo uses keys, gamepad or the touch ribbon. No microphone is open."
-	_sync_hud()
+	_set_input_source(Options.InputSource.MICROPHONE if microphone else Options.InputSource.REMO)
 
 
 func _sync_hud() -> void:
 	if is_instance_valid(_duel_hud) and not _practice:
 		_duel_hud.call("present", _duel, _message, _use_microphone,
-			bool(_spike.call("microphone_ready")))
+			bool(_spike.call("microphone_ready")), _source_preference, _source_status(),
+			Settings.tunable_bool(Options.REST_REMINDERS_KEY)
+				and _voice_rest.is_due(float(Time.get_ticks_msec()) / 1000.0))
+
+
+func _load_voice_profile() -> void:
+	var loaded := Calibration.load_profiles(voice_profile_path)
+	_profile_error = str(loaded["error"])
+	_profile_name = str(loaded["selected"])
+	_voice_profile = loaded["profiles"].get(_profile_name, {})
+	_spike.call("set_voice_profile", _voice_profile)
+	_resolve_source()
+
+
+func _resolve_source() -> void:
+	_source_preference = Settings.tunable_choice(Options.INPUT_SOURCE_KEY)
+	_use_microphone = _source_preference == Options.InputSource.MICROPHONE or (
+		_source_preference == Options.InputSource.AUTO and not _voice_profile.is_empty()
+		and AudioServer.get_input_device_list().has(str(_voice_profile["device"]))
+	)
+
+
+func _set_input_source(preference: int) -> void:
+	if Settings.tunable_choice(Options.INPUT_SOURCE_KEY) == preference:
+		_apply_input_source()
+	else:
+		Settings.set_value(Options.INPUT_SOURCE_KEY, preference)
+
+
+func _apply_input_source() -> void:
+	_spike.call("stop_capture")
+	_duel.cancel_player()
+	_resolve_source()
+	_spike.call("configure_duel", not _practice, _use_microphone)
+	_message = "Microphone remains off until you explicitly enable it or complete Soundcheck." \
+		if _use_microphone else \
+		"Remo uses keys, gamepad or the touch ribbon. No microphone is open."
+	_apply_phase()
+
+
+func _source_status() -> String:
+	var status := "%s -> %s" % [
+		Options.INPUT_SOURCE_TITLES[_source_preference],
+		"Microphone" if _use_microphone else "Remo",
+	]
+	if not _profile_error.is_empty():
+		return status + " | " + _profile_error
+	if _voice_profile.is_empty():
+		return status + " | No voice profile. Soundcheck is optional; Remo works immediately."
+	if not AudioServer.get_input_device_list().has(str(_voice_profile["device"])):
+		return status + " | Profile device unavailable. Check Soundcheck, or use Remo."
+	return status + " | Profile: " + _profile_name + " | Mic %s" % (
+		"enabled" if bool(_spike.call("microphone_ready")) else "off until enabled")
+
+
+func _open_soundcheck() -> void:
+	if _practice or is_instance_valid(_soundcheck) \
+			or _duel.phase not in [Duel.Phase.READY, Duel.Phase.PLAYER_READY]:
+		return
+	_spike.call("stop_capture")
+	_stop_sounds()
+	_spike.process_mode = Node.PROCESS_MODE_DISABLED
+	_duel_hud.hide()
+	_soundcheck = Soundcheck.instantiate()
+	_soundcheck.set("profile_path", voice_profile_path)
+	_soundcheck.connect("completed", _on_soundcheck_completed)
+	_soundcheck.connect("cancelled", _on_soundcheck_cancelled)
+	_soundcheck.connect("remo_requested", _on_soundcheck_remo)
+	_hud.get_node("Overlay").add_child(_soundcheck)
+
+
+func _close_soundcheck() -> void:
+	if not is_instance_valid(_soundcheck):
+		return
+	var wizard := _soundcheck
+	_soundcheck = null
+	wizard.set("_closing", true)
+	wizard.call("_stop_capture")
+	wizard.process_mode = Node.PROCESS_MODE_DISABLED
+	wizard.hide()
+	wizard.queue_free()
+	_spike.process_mode = Node.PROCESS_MODE_INHERIT
+	_duel_hud.visible = _round_active and not _practice
+	_duel_hud.call_deferred("focus_ready_action")
+
+
+func _on_soundcheck_completed(profile: Dictionary, capture: Node) -> void:
+	_voice_profile = profile.duplicate()
+	_profile_error = ""
+	_profile_name = str(Calibration.load_profiles(voice_profile_path)["selected"])
+	if Settings.tunable_choice(Options.INPUT_SOURCE_KEY) == Options.InputSource.REMO:
+		Settings.set_value(Options.INPUT_SOURCE_KEY, Options.InputSource.MICROPHONE)
+	else:
+		_resolve_source()
+		_spike.call("configure_duel", true, _use_microphone)
+	var error: String = _spike.call("adopt_capture", capture, profile)
+	if not error.is_empty():
+		if is_instance_valid(capture):
+			capture.call("stop")
+			capture.queue_free()
+		_close_soundcheck()
+		_message = error
+		_sync_hud()
+		return
+	_close_soundcheck()
+	_message = "Voice profile ready. Use a comfortable voice, or choose Remo."
+	_sync_hud()
+
+
+func _on_soundcheck_cancelled() -> void:
+	_close_soundcheck()
+	_message = "Soundcheck cancelled. The earlier saved profile is unchanged."
+	_sync_hud()
+
+
+func _on_soundcheck_remo() -> void:
+	_close_soundcheck()
+	_set_input_source(Options.InputSource.REMO)
+
+
+func _on_microphone_failed(reason: String) -> void:
+	if not _practice and _source_preference == Options.InputSource.AUTO:
+		_use_microphone = false
+		_spike.call("configure_duel", not _practice, false)
+		_message = reason + " Auto selected Remo; no microphone is open."
+		_sync_hud()
+
+
+func _on_microphone_turn_completed(voiced: bool) -> void:
+	_voice_rest.record_turn(float(Time.get_ticks_msec()) / 1000.0, voiced)
+	_sync_hud()
+
+
+func _on_rest_dismissed() -> void:
+	_voice_rest.dismiss()
+	_sync_hud()
+
+
+func _on_rest_remo() -> void:
+	_voice_rest.dismiss()
+	_set_input_source(Options.InputSource.REMO)
 
 
 func _tanda_verdict() -> String:
@@ -422,9 +585,17 @@ func _stop_sounds() -> void:
 
 
 func _on_game_setting_changed(key: String, _value: Variant) -> void:
+	if key == Options.INPUT_SOURCE_KEY:
+		_close_soundcheck()
+		_apply_input_source()
+		return
+	if key == Options.REST_REMINDERS_KEY:
+		_sync_hud()
+		return
 	if _practice:
 		return
 	if key in [Options.LONG_WINDOWS_KEY, Options.QUIET_MODE_KEY, Options.MIC_SENSITIVITY_KEY]:
+		_close_soundcheck()
 		_spike.call("stop_capture")
 		_duel.cancel_player()
 		_duel.window_seconds = Duel.LONG_WINDOW if Settings.tunable_bool(
@@ -437,10 +608,12 @@ func _notification(what: int) -> void:
 		what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready()
 		and _round_active and not _practice
 		and _duel.phase != Duel.Phase.COMPLETE
-		and (_duel.phase != Duel.Phase.READY or _spike.get("_capture") != null)
+		and (_duel.phase != Duel.Phase.READY or _spike.get("_capture") != null
+			or _soundcheck != null)
 	):
 		open_pause_menu()
 
 
 func _exit_tree() -> void:
+	_close_soundcheck()
 	_stop_sounds()

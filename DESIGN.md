@@ -259,12 +259,13 @@ on for the `sailor_man` feature tag.
 
 ### 4.2 Calibration — "Prueba de voz"
 
-A short, skippable-after-first-time overlay before the first duel and on demand
-from Settings → Game:
+A short optional overlay, opened by the game-owned **Soundcheck** button on a
+pre-duel/next-turn card. The owner selected this entry rather than adding a
+generic Settings action API. Remo works immediately without it.
 
 1. **Room** — 2 s silence. Measures the noise floor. Exact digital silence
    means a dead or denied microphone. Say so plainly and offer buttons.
-2. **Speak** — "Say your name." Establishes speaking level.
+2. **Speak** — "Say a short phrase at your normal speaking level."
 3. **Low** — "Hold a comfortable low *ooo*." This gives the chest centre, `0` cents.
 4. **High** — "Now go up into your light, high voice — *eee*." This gives the falsetto
    band. If no break is found, the band is set from a default **+700 cents**
@@ -275,13 +276,28 @@ from Settings → Game:
 The scoring profile is `{chest_hz, falsetto_low, falsetto_high,
 falsetto_calibrated, carry_level}`. `chest_hz` is an absolute frequency;
 falsetto bounds are relative cents. `falsetto_calibrated` distinguishes a
-measured band from the softer fallback rule. The current spike uses temporary
-manual references and stores nothing.
+measured band from the softer fallback rule. The development workbench still
+accepts temporary manual references when no saved profile is loaded.
 
-Full calibration will add `noise_floor` and `speak_level`, name profiles
-(default "P1"/"P2") and store them in `user://sailor_man_voice.cfg`. That is
+Full calibration adds `noise_floor`, `speak_level` and `device`, names profiles
+(default "P1", with other names supported) and stores only validated scalar
+measurements plus selection in `user://sailor_man_voice.cfg`. That is
 calibration, so it is deliberately **not** a declared `save_files` entry
 (`AGENTS.md`: saves are progress only).
+
+Opening the overlay or selecting a saved profile does not activate capture.
+**Enable microphone** is the gesture boundary. Speak/Low/High allow three
+seconds each, Call six, with an earlier Stop and at least 0.6 seconds of clear
+voice per measurement. Low must be steady; High needs an observed register
+break or keeps an explicitly unmeasured +700-1300-cent fallback. It can also
+be skipped. **Save and use mic** alone saves a completed profile; cancellation
+or failure never replaces a prior one. Saved profiles merge by name;
+damaged/newer files fail explicitly without overwrite.
+
+The overlay suspends duel stepping and releases input on Back, pause/focus loss
+or failure. Saving hands the checked capture reference to gameplay without
+reparenting/restarting its live audio node. Later Enable actions perform a
+fresh room check with the saved vocal range/levels. No PCM or tracks persist.
 
 ### 4.3 Bleed and the speakers
 
@@ -365,6 +381,11 @@ sung performance of the same contour score within 5 % *(tune)*.
   half-voiced salomas score normally.
 - After **6 sung turns in 10 minutes** *(tune)*, the cruise card suggests a
   sip of water and offers Remo mode for the next duel. It never forces it.
+  In the grey-box version this is an optional between-duel card and saved
+  reminder toggle. Only completed voiced microphone turns count, including
+  practice, not silent/failed/cancelled takes, Remo or synthetic examples.
+  Dismissal acknowledges that group; counts are gameplay-session-local across
+  replays, never stored in calibration.
 - Copy never says "louder". It says "carry", "hold", "break" and "finish".
 - No achievement rewards loudness or session length.
 
@@ -374,7 +395,14 @@ sung performance of the same contour score within 5 % *(tune)*.
 | --- | --- | --- |
 | Desktop | Native | Primary target. Device picker in Soundcheck (`AudioServer.input_device`). |
 | Mobile | Native after runtime permission | Record permission in the export preset. Single-player only (shell rule). Touch Remo fully supported. |
-| Web | HTTPS + permission + a user gesture | Soundcheck is the gesture gate. Detector on a main-thread budget when threads are unavailable, as Dead Metal Jam plans. |
+| Web | HTTPS + permission + a user gesture | Soundcheck is the gesture gate. Live analysis yields after eight detector windows per update; Stop queues/drains its last PCM over updates. No worker thread is required. |
+
+Saved Auto/Microphone/Remo selection is a manifest-declared integer choice.
+Auto prefers an available calibrated device, otherwise Remo; no preference or
+profile silently opens hardware. Capture failure selects usable Remo for Auto
+without changing that saved preference. Desktop/offline analysis remains
+unlimited. Synthetic equivalence tests exercise the budget, not real browser
+permissions, acoustic behavior or device performance.
 
 No gameplay script may branch on platform. Differences are resolved where
 sources are built, as in Dead Metal Jam §4.7.
@@ -720,9 +748,10 @@ would compete with the singer.
 | `game/sailor_man_mic_sensitivity` | slider 50–150 % | 100 % |
 
 Bindings are listed in §4.5, with every action and key prefixed
-`sailor_man_`. "Recalibrate voice" is a button on the Game tab that opens
-Soundcheck. If that needs a manifest field the framework lacks, raise it as
-data on `GameManifest`. Do not branch on the game.
+`sailor_man_`. Source, Quiet Mode and reminder preferences are ordinary
+manifest-declared tunables. Recalibration opens through the game-owned
+pre-duel Soundcheck button; no framework action-row API or game-name branch
+is needed.
 
 ---
 

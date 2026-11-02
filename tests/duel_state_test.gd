@@ -131,6 +131,12 @@ func _test_windows_and_guard() -> void:
 	_open_player(duel)
 	duel.advance(6.0)
 	_expect(duel.close_requested, "A normal window must close at six seconds.")
+	duel.observe_frames(_track())
+	_expect(duel.accepted_frame_count() == 20 and not duel.silence_closed(),
+		"A wall-clock deadline must still admit captured frames queued for bounded analysis.")
+	duel.observe_frames(silence)
+	_expect(duel.silence_closed() and duel.accepted_frame_count() == 140,
+		"A late analysis batch must retain the real-silence cutoff, not the queue's end.")
 	duel = _player_ready(true)
 	_open_player(duel)
 	duel.advance(6.0)

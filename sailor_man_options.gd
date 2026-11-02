@@ -7,6 +7,10 @@ const GAME_ID := "sailor_man"
 const QUIET_MODE_KEY := "game/sailor_man_quiet_mode"
 const LONG_WINDOWS_KEY := "game/sailor_man_long_windows"
 const MIC_SENSITIVITY_KEY := "game/sailor_man_mic_sensitivity"
+const INPUT_SOURCE_KEY := "game/sailor_man_input_source"
+const REST_REMINDERS_KEY := "game/sailor_man_rest_reminders"
+enum InputSource { AUTO, MICROPHONE, REMO }
+const INPUT_SOURCE_TITLES := ["Auto", "Microphone", "Remo"]
 const RECORD_KEY := "controls/sailor_man_spike_record"
 const RECORD_ACTION := &"sailor_man_spike_record"
 const VOICE_KEY := "controls/sailor_man_voice"
@@ -25,11 +29,27 @@ const REMO_ACTIONS: Array[StringName] = [
 
 const TUNABLES: Array[Dictionary] = [
 	{
+		"key": INPUT_SOURCE_KEY,
+		"type": GameManifest.OPTION_CHOICE,
+		"default": InputSource.AUTO,
+		"title": "Input source",
+		"description": "Auto prefers an available calibrated microphone, otherwise Remo. "
+			+ "A microphone always needs your explicit Enable action.",
+		"heading": "Voice input",
+		"choices": [
+			{"value": InputSource.AUTO, "title": INPUT_SOURCE_TITLES[InputSource.AUTO]},
+			{"value": InputSource.MICROPHONE,
+				"title": INPUT_SOURCE_TITLES[InputSource.MICROPHONE]},
+			{"value": InputSource.REMO, "title": INPUT_SOURCE_TITLES[InputSource.REMO]},
+		],
+	},
+	{
 		"key": QUIET_MODE_KEY,
 		"type": GameManifest.OPTION_TOGGLE,
 		"default": false,
 		"title": "Quiet Mode",
-		"description": "Removes the carrying-level gate. Extra volume never earns points.",
+		"description": "Uses your measured speaking level and removes the carrying-level gate. "
+			+ "Extra volume never earns points.",
 		"heading": "Voice scorer prototype",
 	},
 	{
@@ -50,6 +70,15 @@ const TUNABLES: Array[Dictionary] = [
 		"title": "Microphone sensitivity",
 		"description": "Adjusts input gain, not the pitch or the judges' scoring weights.",
 		"heading": "Voice scorer prototype",
+	},
+	{
+		"key": REST_REMINDERS_KEY,
+		"type": GameManifest.OPTION_TOGGLE,
+		"default": true,
+		"title": "Voice-rest reminders",
+		"description": "After six voiced microphone turns in ten minutes, offer a break "
+			+ "or Remo between duels. Never changes your input automatically.",
+		"heading": "Voice input",
 	},
 ]
 

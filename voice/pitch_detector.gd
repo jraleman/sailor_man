@@ -56,16 +56,17 @@ func reset() -> void:
 
 
 ## Accept capture buffers without dropping hops when a render frame is late.
-func push_frames(frames: PackedVector2Array) -> Array[Dictionary]:
+func push_frames(frames: PackedVector2Array, max_windows := -1) -> Array[Dictionary]:
 	var mono := PackedFloat32Array()
 	mono.resize(frames.size())
 	for index in frames.size():
 		mono[index] = (frames[index].x + frames[index].y) * 0.5
-	return push_samples(mono)
+	return push_samples(mono, max_windows)
 
 
-## A mono entry point keeps the full streaming path testable without hardware.
-func push_samples(samples: PackedFloat32Array) -> Array[Dictionary]:
+## Zero queues only; -1 drains all. Live callers bound expensive analysis windows.
+func push_samples(samples: PackedFloat32Array, max_windows := -1) -> Array[Dictionary]:
+	assert(max_windows >= -1)
 	_raw.append_array(samples)
 	var usable := _raw.size() - _raw.size() % DECIMATION
 	for offset in range(0, usable, DECIMATION):
@@ -75,13 +76,18 @@ func push_samples(samples: PackedFloat32Array) -> Array[Dictionary]:
 		_pending.append(sum / float(DECIMATION))
 	_raw = _raw.slice(usable)
 	var results: Array[Dictionary] = []
-	while _pending.size() >= _window_size:
+	while has_pending_analysis() and (max_windows < 0 or results.size() < max_windows):
 		var analysis := analyse_window(_pending.slice(0, _window_size))
 		analysis["t"] = float((_consumed + _window_size) * DECIMATION) / _input_rate
 		results.append(analysis)
 		_pending = _pending.slice(_hop_size)
 		_consumed += _hop_size
 	return results
+
+
+## A web frame can yield without dropping samples or changing their timestamps.
+func has_pending_analysis() -> bool:
+	return _pending.size() >= _window_size
 
 
 ## The single-window path takes decimated samples and has no streaming state.

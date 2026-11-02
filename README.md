@@ -27,9 +27,12 @@ godot --path . res://games/sailor_man/tools/scorer_spike.tscn -- --game=sailor_m
 The practice skiff calls tanda one. Review its numbered paddles, then
 **Continue**, optionally **Repeat call** once, and press **Ready**. A short
 2400 Hz cue and 250 ms guard precede **YA!** and the six-second listening
-window. Remo is the initial source and requires no microphone. Choose
-**Microphone** on a ready card to explicitly enable and room-check a device;
-after Ready, recording begins only when the guard finishes.
+window. Without a saved profile, Auto starts with microphone-free Remo. Choose
+**Soundcheck** on a ready card to measure a microphone profile, or use Remo
+immediately. The saved source preference is **Auto / Microphone / Remo**;
+Auto prefers an available calibrated device, otherwise Remo. Neither loading
+a profile nor selecting Microphone opens hardware. After Ready, recording
+begins only when the guard finishes.
 Cue playback is explicitly stopped before admitting the scored input.
 
 Three neutral development judges prefer Quiebre, Aliento and Eco. Each
@@ -51,8 +54,8 @@ after 1.2 seconds of actual silence following voice. Audio buffered after
 that cutoff is excluded. Missing PCM is an error, never presumed silence.
 Pause, focus loss and failed capture discard a partial turn and retry the
 same call/answer with its earlier reference intact. Rival playback restarts
-the same turn after pause. Source selection is local to this scene, not a
-saved Auto/Microphone/Remo preference.
+the same turn after pause. Auto falls back to Remo after capture failure
+without changing the saved Auto preference.
 
 The skiff's authored track and synthetic tone are development placeholders,
 not performer recordings. Turn gating and tail protection are implemented,
@@ -99,9 +102,10 @@ score or an earlier kept reference. No performance audio or tracks are saved.
 
 ## Microphone practice
 
-The microphone starts **off**. Select a device, choose **Enable microphone**,
-and stay quiet for the two-second room check. Set a comfortable chest reference
-in Hz and carrying level in linear RMS, then **Record call**. **R** starts or
+The microphone starts **off**. A loaded Soundcheck profile supplies its measured
+range and levels; choose **Enable microphone** for a fresh room check before
+recording. Without a saved profile, the development workbench also retains
+temporary manual chest-Hz and carrying-RMS inputs. **R** starts or
 stops recording after the room check; it is rebindable under Controls.
 Recording stops automatically at six seconds, or nine with Longer listening
 windows. Pause disconnects the microphone.
@@ -119,12 +123,56 @@ without microphone permission. **Keep reference** retains a call in memory;
 the next Remo call, recording or example is an answer and can earn Eco.
 **Finish session** opens the shell's results, and replay clears the session.
 
+## Soundcheck and saved voice profiles
+
+The game-owned **Soundcheck** button opens a pre-duel overlay, also available
+before your next turn. It suspends the chamber clock, preserves the pending
+call and does not request microphone access. Pick a device and profile name
+(default **P1**), then explicitly press **Enable microphone**:
+
+1. **Room:** two seconds of actual input measure the noise floor. Dead,
+   denied or absent input is an explicit failure, with a **Use Remo** exit.
+2. **Speak:** record a short phrase at normal speaking level.
+3. **Low:** hold a comfortable, steady low *ooo* to establish the chest reference.
+4. **High:** move into a comfortable light voice, or **Skip high** for the fallback.
+   Only an observed register break marks the high band as measured; the
+   unmeasured +700-1300-cent fallback retains the softer Quiebre rule.
+5. **Call:** try an unscored call and see its chest-relative ribbon.
+
+Speak/Low/High stop after three seconds; Call allows six. Stop earlier whenever
+comfortable. Each voice measurement needs at least 0.6 seconds of clear voice.
+No cue, monitoring or performance playback is needed. **Save and use mic**
+alone writes the completed profile and hands the checked capture to gameplay
+without moving/restarting its audio node. Back, Escape, pause, focus loss and
+failure release capture without saving partial measurements.
+
+Named scalar profiles and the selected name live in
+`user://sailor_man_voice.cfg`: chest Hz, high-band bounds/measured flag,
+speaking/carrying RMS, noise floor and device. No PCM or tracks persist.
+Saving merges names; retry/cancel cannot replace an earlier profile.
+Damaged/newer files are reported and not overwritten. **Use saved profile**
+selects one without opening hardware; Enable still performs a fresh room check.
+Calibration is not progress and is deliberately absent from `save_files`.
+
+**Quiet Mode** normalizes to the measured speaking RMS and bypasses the
+carrying-level gate, without changing pitch or scoring weights. The optional
+**Voice-rest reminders** setting offers water/rest or Remo between duels after
+six completed voiced microphone turns in a rolling ten minutes. Silent,
+failed, cancelled, synthetic and Remo turns do not count. It never forces a
+break or input switch; dismissal acknowledges that group. Counts stay only in
+the current gameplay session, including replays, not the profile file.
+
+Web input uses at most eight detector windows per live update. Stop queues
+its final PCM and finishes over subsequent updates without dropping samples
+or blocking on the whole take. Offline analysis remains unlimited. This is
+automated bounded-processing coverage, not browser/device performance QA.
+
 ## Implemented
 
 - One node-free scorer for normalized 100 Hz tracks: Aliento, Quiebre,
   Altura, Remate and answer-only Eco, with break/breath evidence.
 - Range-relative pitch, short octave-glitch protection, a capped carrying-level
-  gate, and Quiet Mode's gate bypass. Extra volume earns nothing.
+  gate, and measured speaking-level Quiet Mode. Extra volume earns nothing.
 - A locally adapted MPM detector, continuous microphone-to-track pipeline,
   opt-in capture, device/error handling and a live pitch/reference ribbon.
 - Keyboard/gamepad and independent multitouch Remo sources on the same
@@ -133,13 +181,15 @@ the next Remo call, recording or example is an answer and can earn Eco.
   rival, call repeats, chamber/turn clocks and guarded source admission.
 - Original primitive boats and lock in an isolated compatibility viewport,
   numeric P1/CPU paddles, captions and responsive duel/input presentation.
+- Guided Soundcheck, named scalar profiles, saved source choice, optional
+  voice-rest reminders and a bounded web analysis path.
 - Quiet Mode, six/nine-second windows and 50-150% sensitivity in the Game tab.
 - Shell discovery, pause, results and replay; scrolling layouts from phone to
   ultrawide, including enlarged UI; original prototype icon and walkthrough.
 
-The manual voice references are **not full calibration**. No PCM, performance
-tracks or voice profiles are saved; only declared options/bindings use the
-host's normal settings persistence. Source launches use the host development
+Manual workbench references are **not full calibration**. No PCM or performance
+tracks are saved; Soundcheck alone saves completed scalar profiles. Declared
+options/bindings use the host's normal settings persistence. Source launches use the host development
 user directory. A dedicated standalone export is not configured.
 
 ## Offline recording comparison
@@ -206,8 +256,9 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Seven suites cover the pure scorer, low/high-register equivalence, synthesized
-PCM, Remo sources/parity, duel/judge/rival rules and both real scene paths:
+Nine suites cover the scorer, low/high-register equivalence, synthesized PCM,
+Remo parity, duel rules, calibration/persistence and three real scene paths.
+Use `--audio-driver Dummy` for automated runs:
 
 ```powershell
 godot --headless --path . --script res://games/sailor_man/tests/saloma_scorer_test.gd -- --game=all
@@ -217,8 +268,11 @@ godot --headless --path . --script res://games/sailor_man/tests/remo_source_test
 godot --headless --path . --script res://games/sailor_man/tests/duel_state_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/voice_calibration_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 ```
 
 The windowed scene runs check real rendering at 320x568, 568x320, 1280x720
@@ -237,6 +291,15 @@ usable Remo controls after microphone setup. Native checks project the
 complete boat meshes through the actual camera, verify an isolated 3D world
 and guard a nonempty render below 60 draw calls. Narrow listening layouts
 deliberately hide the arena to keep the ribbon and touch buttons usable.
+
+Soundcheck checks feed synthesized PCM through the real wizard, detector and
+normalizer, including a queued Stop, observed versus skipped high band,
+named-profile round-trips and unchanged files after cancellation/failure.
+Gameplay checks cover capture handoff without a tree exit, pending-answer
+preservation, speaking-level Quiet Mode, bounded late analysis, device mismatch,
+Auto failure fallback and optional rest actions. Windowed checks also cover
+Room, High, recording Call and Complete at all eight size/UI combinations,
+including the visible Call ribbon, pinned actions and scrolled save errors.
 
 The pipeline suite also writes temporary, explicitly synthetic WAV fixtures
 in its isolated user profile and removes them afterward. It checks all
@@ -269,8 +332,8 @@ scores as passing the real-recording milestone gate.
 
 The owner authorized Remo and grey-box duel work assuming that real-voice
 validation works. That assumption does not mark its unchecked gate complete.
-Full Soundcheck/profiles, recorded rival crews, the finished 3D canal, campaign and two-player
-hot seat remain future work. See `DESIGN.md` and `TODO.md`.
+Recorded rival crews, the finished 3D canal, campaign and two-player hot seat
+remain future work. See `DESIGN.md` and `TODO.md`.
 
 Re-record the labelled duel walkthrough only when its visuals/captions change.
 It completes both tandas and reaches shell results with actual keyboard

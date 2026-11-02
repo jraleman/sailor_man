@@ -6,6 +6,10 @@ extends PanelContainer
 signal action_requested
 signal repeat_requested
 signal source_requested(microphone: bool)
+signal auto_source_requested
+signal soundcheck_requested
+signal rest_dismissed
+signal rest_remo_requested
 signal practice_requested
 signal pause_requested
 
@@ -13,6 +17,7 @@ const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const Judges = preload("res://games/sailor_man/duel/judges.gd")
 const Lock = preload("res://games/sailor_man/world/greybox_lock.gd")
 const Ribbon = preload("res://games/sailor_man/ui/voice_ribbon.gd")
+const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 
 var lock: Lock
 var primary: Button
@@ -30,6 +35,10 @@ var _sources: HFlowContainer
 var _practice: Button
 var _remo_button: Button
 var _mic_button: Button
+var _auto_button: Button
+var _soundcheck: Button
+var _source_status: Label
+var _rest_offer: VBoxContainer
 var _pause: Button
 var _rival_ribbon: Ribbon
 var _judges: Array[Label] = []
@@ -71,12 +80,28 @@ func _ready() -> void:
 		func() -> void: repeat_requested.emit())
 	_practice = _button(_actions, "Practice", "Practice",
 		func() -> void: practice_requested.emit())
+	_soundcheck = _button(_actions, "Soundcheck", "Soundcheck",
+		func() -> void: soundcheck_requested.emit())
 	_sources = HFlowContainer.new()
 	column.add_child(_sources)
+	_auto_button = _button(_sources, "UseAuto", "Auto",
+		func() -> void: auto_source_requested.emit())
 	_remo_button = _button(_sources, "UseRemo", "Remo",
 		func() -> void: source_requested.emit(false))
 	_mic_button = _button(_sources, "UseMicrophone", "Microphone",
 		func() -> void: source_requested.emit(true))
+	_source_status = _label(column, "SourceStatus", "")
+	_rest_offer = VBoxContainer.new()
+	_rest_offer.name = "VoiceRestOffer"
+	column.add_child(_rest_offer)
+	_label(_rest_offer, "VoiceRestCopy",
+		"Six voiced microphone turns in ten minutes. Consider some water or a rest. "
+		+ "Remo is available for the next duel; the choice is yours.")
+	var rest_actions := HFlowContainer.new()
+	_rest_offer.add_child(rest_actions)
+	_button(rest_actions, "RestNotNow", "Not now", func() -> void: rest_dismissed.emit())
+	_button(rest_actions, "RestUseRemo", "Use Remo",
+		func() -> void: rest_remo_requested.emit())
 	_body = BoxContainer.new()
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_body)
@@ -101,7 +126,7 @@ func _ready() -> void:
 	_label(details, "PrototypeNotice",
 		"Best of three tandas. Ties go to the answerer. The chamber clock pauses "
 		+ "inside performances. No lives or progress are lost. Real voices, cultural "
-		+ "review, saved Soundcheck profiles and the voyage remain pending.")
+		+ "review and the voyage remain pending. Soundcheck stores measurements, not audio.")
 	_input_box = MarginContainer.new()
 	_input_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_input_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -120,16 +145,31 @@ func mount_input(input: Control) -> void:
 	_fit()
 
 
+## A cancelled or completed modal returns keyboard/controller focus to the duel.
+func focus_ready_action() -> void:
+	if not is_visible_in_tree():
+		return
+	if not primary.disabled:
+		primary.grab_focus()
+	elif _soundcheck.is_visible_in_tree():
+		_soundcheck.grab_focus()
+
+
 ## Spectators see the same contour that Eco will use, including during repeats.
 func show_track(
 	frames: Array[Dictionary], reference: Array[Dictionary], evidence: Dictionary,
-	duration: float
+	duration: float, profile: Dictionary = {}
 ) -> void:
+	if not profile.is_empty():
+		_rival_ribbon.set_profile(profile)
 	_rival_ribbon.show_tracks(frames, reference, evidence, duration)
 
 
 ## This view reads the duel's decisions, never awards points or advances a turn.
-func present(state: Duel, message: String, microphone: bool, microphone_ready: bool) -> void:
+func present(
+	state: Duel, message: String, microphone: bool, microphone_ready: bool,
+	source_preference := Options.InputSource.AUTO, source_status := "", rest_due := false
+) -> void:
 	var changed := _phase != state.phase
 	_phase = state.phase
 	_use_microphone = microphone
@@ -167,9 +207,14 @@ func present(state: Duel, message: String, microphone: bool, microphone_ready: b
 	repeat.visible = state.phase == Duel.Phase.PLAYER_READY and state.turn == 1
 	repeat.disabled = state.repeat_used
 	_practice.visible = state.phase == Duel.Phase.READY
+	_soundcheck.visible = state.phase in [Duel.Phase.READY, Duel.Phase.PLAYER_READY]
 	_sources.visible = state.phase in [Duel.Phase.READY, Duel.Phase.PLAYER_READY]
-	_remo_button.disabled = not microphone
-	_mic_button.disabled = microphone
+	_auto_button.disabled = source_preference == Options.InputSource.AUTO
+	_remo_button.disabled = source_preference == Options.InputSource.REMO
+	_mic_button.disabled = source_preference == Options.InputSource.MICROPHONE
+	_source_status.text = source_status
+	_source_status.visible = _sources.visible
+	_rest_offer.visible = rest_due and state.phase in [Duel.Phase.READY, Duel.Phase.COMPLETE]
 	for index in _judges.size():
 		var judge := Judges.panel()[index]
 		var p1 := "-"

@@ -9,6 +9,9 @@ signal finish_requested
 signal duel_requested
 signal duel_frames_ready(frames: Array[Dictionary])
 signal duel_turn_cancelled(reason: String)
+signal soundcheck_requested
+signal microphone_failed(reason: String)
+signal microphone_turn_completed(voiced: bool)
 
 @export var standalone_tool := false
 
@@ -19,6 +22,7 @@ const Source = preload("res://games/sailor_man/voice/mic_voice_source.gd")
 const RemoSource = preload("res://games/sailor_man/voice/touch_voice_source.gd")
 const RemoTone = preload("res://games/sailor_man/audio/remo_tone.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
+const Calibration = preload("res://games/sailor_man/voice/voice_calibration.gd")
 const NORMAL_WINDOW := 6.0
 const LONG_WINDOW := 9.0
 const MARK_NAMES := {
@@ -48,9 +52,13 @@ var _remo_triggers: Dictionary[int, bool] = {}
 var _track: Array[Dictionary] = []
 var _reference: Array[Dictionary] = []
 var _profile := Frame.profile()
+var _human_profile: Dictionary = {}
 var _last_result: Dictionary = {}
 var _noise_floor := 0.004
 var _recording := false
+var _finishing := false
+var _received_samples := 0
+var _analysis_budget := Source.live_analysis_budget()
 var _elapsed := 0.0
 var _no_audio_seconds := 0.0
 var _window := NORMAL_WINDOW
@@ -88,6 +96,7 @@ func _ready() -> void:
 		_device.add_item(device)
 		if device == AudioServer.input_device:
 			_device.select(_device.item_count - 1)
+	_device.item_selected.connect(func(_index: int) -> void: _update_controls())
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null:
 		settings.connect("changed", _on_setting_changed)
@@ -109,21 +118,27 @@ func _process(delta: float) -> void:
 	var frames: PackedVector2Array = _capture.call("poll")
 	if not _recording:
 		return
-	_elapsed += delta
-	_no_audio_seconds = _no_audio_seconds + delta if frames.is_empty() else 0.0
-	if _no_audio_seconds >= Capture.NO_INPUT_TIMEOUT:
-		var error := (
-			"No microphone audio arrived for %.0f seconds. Check the device and "
-			+ "microphone permission, then enable it again. Remo needs no microphone."
-		) % Capture.NO_INPUT_TIMEOUT
-		push_warning("Sailor Man recording: %s" % error)
-		_on_capture_failed(error)
-		return
-	_track.append_array(_source.push_frames(frames))
+	if _finishing:
+		frames = PackedVector2Array()
+	else:
+		_elapsed += delta
+		_no_audio_seconds = _no_audio_seconds + delta if frames.is_empty() else 0.0
+		if _no_audio_seconds >= Capture.NO_INPUT_TIMEOUT:
+			var error := (
+				"No microphone audio arrived for %.0f seconds. Check the device and "
+				+ "microphone permission, then enable it again. Remo needs no microphone."
+			) % Capture.NO_INPUT_TIMEOUT
+			push_warning("Sailor Man recording: %s" % error)
+			_on_capture_failed(error)
+			return
+	_track.append_array(_source.push_frames(_admit_pcm(frames), _analysis_budget))
 	_publish_duel_frames()
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
-	_status.text = "Listening: %.1f / %.0f s. Stop whenever comfortable." % [_elapsed, _window]
-	if _elapsed >= _window:
+	_status.text = "Finishing captured audio..." if _finishing else \
+		"Listening: %.1f / %.0f s. Stop whenever comfortable." % [_elapsed, _window]
+	if _finishing:
+		_complete_recording()
+	elif _elapsed >= _window:
 		_finish_recording()
 
 
@@ -159,6 +174,7 @@ func load_example(shaped: bool) -> void:
 	_cancel_recording()
 	_cancel_remo()
 	_profile = Frame.profile()
+	_ribbon.call("set_profile", _profile)
 	_track.clear()
 	for index in 550:
 		var t := float(index) / Frame.RATE_HZ
@@ -230,6 +246,40 @@ func microphone_ready() -> bool:
 	return _capture != null and bool(_capture.call("is_ready"))
 
 
+## A human profile stays separate from Remo's authored, known virtual range.
+func set_voice_profile(profile: Dictionary) -> String:
+	var error := Calibration.profile_error(profile) if not profile.is_empty() else ""
+	if not error.is_empty():
+		_status.text = error
+		push_warning("Sailor Man input profile: %s" % error)
+		return error
+	stop_capture()
+	_human_profile = profile.duplicate()
+	if not profile.is_empty():
+		_chest.value = float(profile["chest_hz"])
+		_carry.value = float(profile["carry_level"])
+		for index in _device.item_count:
+			if _device.get_item_text(index) == str(profile["device"]):
+				_device.select(index)
+	_status.text = "Voice profile loaded. The microphone remains off." if not profile.is_empty() \
+		else "No saved voice profile. Soundcheck is optional; Remo works without a microphone."
+	_reload_options()
+	_update_controls()
+	return ""
+
+
+## Soundcheck can hand over its already-checked device after the explicit Save.
+func adopt_capture(capture: Node, profile: Dictionary) -> String:
+	var error := set_voice_profile(profile)
+	if not error.is_empty() or capture == null:
+		return error
+	_capture = capture
+	_capture.connect("calibrated", _on_calibrated)
+	_capture.connect("capture_failed", _on_capture_failed)
+	_on_calibrated(float(profile["noise_floor"]))
+	return ""
+
+
 ## Discard idle audio at the real cue and preserve only this tanda's call.
 func begin_duel_turn(reference: Array[Dictionary]) -> bool:
 	assert(_duel_mode)
@@ -291,6 +341,9 @@ func _toggle_microphone() -> void:
 	if _capture != null:
 		stop_capture()
 		return
+	if _needs_soundcheck():
+		soundcheck_requested.emit()
+		return
 	if _device.item_count == 0:
 		_status.text = "No input device is available. Remo needs no microphone."
 		_update_controls()
@@ -304,8 +357,23 @@ func _toggle_microphone() -> void:
 	_update_controls()
 
 
+func _needs_soundcheck() -> bool:
+	return _duel_mode and (_human_profile.is_empty() or _device.item_count == 0
+		or _device.get_item_text(_device.selected) != str(_human_profile["device"]))
+
+
 func _on_calibrated(noise_floor: float) -> void:
 	_noise_floor = noise_floor
+	if not _human_profile.is_empty():
+		if noise_floor >= minf(float(_human_profile["speak_level"]),
+			float(_human_profile["carry_level"])):
+			_on_capture_failed("The room is above this profile's measured voice levels. "
+				+ "Try Soundcheck for this room, or use Remo.")
+			return
+		_status.text = "Room checked; the saved voice range and levels are ready. " \
+			+ "Use a comfortable voice, or choose Remo."
+		_update_controls()
+		return
 	_status.text = (
 		"Room check complete. Set a comfortable chest reference, then Record. "
 		+ "This is not yet a full vocal-range calibration."
@@ -322,6 +390,7 @@ func _on_capture_failed(reason: String) -> void:
 	stop_capture()
 	_status.text = reason
 	_duel_fail(reason)
+	microphone_failed.emit(reason)
 
 
 func _toggle_recording() -> void:
@@ -336,8 +405,11 @@ func _toggle_recording() -> void:
 		_status.text = "Enable the microphone and finish the room check first."
 		_update_controls()
 		return
-	_profile = Frame.profile(_chest.value)
-	_profile["carry_level"] = _carry.value
+	if _human_profile.is_empty():
+		_profile = Frame.profile(_chest.value)
+		_profile["carry_level"] = _carry.value
+	else:
+		_profile = Calibration.scoring_profile(_human_profile, _quiet)
 	var error := Frame.profile_error(_profile)
 	if not error.is_empty():
 		_status.text = error
@@ -349,22 +421,44 @@ func _toggle_recording() -> void:
 	_last_result.clear()
 	_elapsed = 0.0
 	_no_audio_seconds = 0.0
+	_received_samples = 0
+	_finishing = false
 	_recording = true
 	_marks.text = "Listening. Use a comfortable voice; extra volume earns nothing."
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
+	_ribbon.call("set_profile", _profile)
 	_update_controls()
 
 
 func _finish_recording() -> void:
 	if not _recording:
 		return
-	# GUI input can stop the call before this frame's regular poll.
-	if _capture != null and bool(_capture.call("is_ready")):
-		var frames: PackedVector2Array = _capture.call("poll")
-		_track.append_array(_source.push_frames(frames))
+	if not _finishing:
+		# Enqueue the GUI Stop's final buffer without spending another web frame budget.
+		if microphone_ready():
+			var frames: PackedVector2Array = _capture.call("poll")
+			_source.push_frames(_admit_pcm(frames), 0)
+		_finishing = true
+	if _analysis_budget < 0:
+		_track.append_array(_source.push_frames(PackedVector2Array()))
+	_complete_recording()
+
+
+func _admit_pcm(frames: PackedVector2Array) -> PackedVector2Array:
+	var remaining := maxi(roundi(_window * AudioServer.get_mix_rate()) - _received_samples, 0)
+	var accepted := frames.slice(0, remaining)
+	_received_samples += accepted.size()
+	return accepted
+
+
+func _complete_recording() -> void:
+	if not _recording or _source.has_pending_analysis():
+		_update_controls()
+		return
 	_track.append_array(_source.finish())
 	_publish_duel_frames()
 	_recording = false
+	_finishing = false
 	if _track.is_empty():
 		var error := (
 			"No analyzable audio was captured. Try a longer call, or check the "
@@ -379,6 +473,10 @@ func _finish_recording() -> void:
 		return
 	if not _judge():
 		return
+	var voiced := false
+	for frame: Dictionary in _track:
+		voiced = voiced or bool(frame["voiced"])
+	microphone_turn_completed.emit(voiced)
 	_status.text = (
 		"Call scored. Rest whenever needed; try the synthetic examples instead."
 		if float(_last_result.get("total", 0.0)) > 0.0
@@ -387,16 +485,18 @@ func _finish_recording() -> void:
 
 
 func _cancel_recording() -> void:
-	if _recording:
-		_source.finish()
+	var was_recording := _recording
+	_recording = false
+	_finishing = false
+	_elapsed = 0.0
+	_no_audio_seconds = 0.0
+	if was_recording:
+		_source.cancel()
 		_track.clear()
 		_last_result.clear()
 		_marks.text = "Call cancelled. No score recorded."
 		_ribbon.call("show_tracks", _track, _reference, {}, _window)
 		_duel_fail("Microphone turn cancelled. Ready again to retry the same turn.")
-	_recording = false
-	_elapsed = 0.0
-	_no_audio_seconds = 0.0
 
 
 func _toggle_remo() -> void:
@@ -412,6 +512,7 @@ func _start_remo() -> void:
 		return
 	stop_capture()
 	_profile = RemoSource.profile()
+	_ribbon.call("set_profile", _profile)
 	_track.clear()
 	_last_result.clear()
 	_elapsed = 0.0
@@ -585,11 +686,23 @@ func _reload_options() -> void:
 		"%.0f s window | Quiet Mode %s | Sensitivity %.0f%%\n"
 		+ "Mic: unmeasured falsetto uses the softer rule. Remo: authored 700-1300-cent band."
 	) % [_window, "on" if _quiet else "off", _sensitivity * 100.0]
+	if not _human_profile.is_empty():
+		_options_label.text = (
+			"%.0f s | Quiet Mode %s | Mic %.1f Hz, %d-%d cents (%s)\n%s"
+		) % [
+			_window, "on" if _quiet else "off", _human_profile["chest_hz"],
+			_human_profile["falsetto_low"], _human_profile["falsetto_high"],
+			"measured" if _human_profile["falsetto_calibrated"] else "fallback",
+			"Normalization: measured speaking level." if _quiet
+				else "Normalization: measured carrying level. Extra volume earns nothing.",
+		]
 
 
 func _on_setting_changed(key: String, _value: Variant) -> void:
 	if key in [Options.QUIET_MODE_KEY, Options.LONG_WINDOWS_KEY, Options.MIC_SENSITIVITY_KEY]:
+		_cancel_recording()
 		_reload_options()
+		_update_controls()
 	elif key == "ui/scale":
 		_fit_ui()
 	else:
@@ -641,16 +754,19 @@ func _fit_ui() -> void:
 
 func _update_controls() -> void:
 	_record.disabled = _remo_active or _capture == null or not bool(_capture.call("is_ready"))
-	_record.text = "Stop and score" if _recording else "Record call"
-	_enable.text = "Disconnect mic" if _capture != null else "Enable microphone"
+	_record.text = "Finishing..." if _finishing else (
+		"Stop and score" if _recording else "Record call")
+	_record.disabled = _record.disabled or _finishing
+	_enable.text = "Disconnect mic" if _capture != null else (
+		"Open Soundcheck" if _needs_soundcheck() else "Enable microphone")
 	_reference_button.disabled = (
 		_recording or _remo_active or _track.is_empty()
 		or not bool(_last_result.get("valid", false))
 	)
 	_clear_reference.disabled = _reference.is_empty() or _recording or _remo_active
 	_device.disabled = _capture != null
-	_chest.editable = not _recording and not _remo_active
-	_carry.editable = not _recording and not _remo_active
+	_chest.editable = _human_profile.is_empty() and not _recording and not _remo_active
+	_carry.editable = _human_profile.is_empty() and not _recording and not _remo_active
 	(%StartRemo as Button).text = "Stop Remo" if _remo_active else "Start Remo call"
 	(%StartRemo as Button).disabled = _duel_mode and not _duel_turn_open
 	(%RemoBreak as Button).disabled = not _remo_active
@@ -668,12 +784,14 @@ func _update_duel_presentation() -> void:
 		var shown := not _duel_mode
 		if _duel_mode:
 			match child.name:
-				"DeviceTitle", "InputDevice", "Profile", "Status":
+				"DeviceTitle", "InputDevice", "Status":
 					shown = _duel_microphone and not _duel_turn_open
 				"Actions":
 					shown = _duel_microphone
 				"RemoPanel":
 					shown = true
+		if child.name == "Profile" and not _human_profile.is_empty():
+			shown = false
 		child.visible = shown
 	_enable.visible = not _duel_mode or not _duel_turn_open
 	_record.visible = not _duel_mode or _duel_turn_open

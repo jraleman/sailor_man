@@ -24,10 +24,9 @@ below that depends on one should start until it is answered.
 - [x] **Grito** (§15.6) — part of Remate, no separate action.
 - [ ] **Real place names** (§15.7) — Gatún, Culebra, Miraflores and so on,
       without canal-authority branding.
-- [ ] **"Recalibrate voice" button on the Game tab** (§10) — tunables only
-      support slider, toggle and choice. Decide: add a generic action-row field
-      to `GameManifest` (a framework change, as data), or open Soundcheck
-      somewhere else, such as from the pre-duel card.
+- [x] **Soundcheck entry** (§10) — the owner chose the game-owned pre-duel /
+      next-turn **Soundcheck** button. No generic Settings action-row API or
+      framework game-name branch is needed.
 
 ## Discrepancies found while planning
 
@@ -223,8 +222,8 @@ Buffered audio after the 1.2-second real-silence cutoff cannot enter the score.
 Both source routes reach shell results in automated integration checks:
 actual Remo viewport input and buffered PCM through the existing microphone
 pipeline. The latter does not open or validate a physical microphone.
-Named Soundcheck profiles, saved source selection and measured room-tail
-protection remain later work.
+Named Soundcheck profiles and saved source selection are implemented in
+Milestone 4 below. Measured acoustic room-tail protection remains later work.
 
 **Final automated validation (Godot 4.7.2, Windows):** all seven game suites
 and all 15 framework suites exited 0 with Dummy audio and isolated profiles;
@@ -257,20 +256,58 @@ parse errors are deliberate negative cases.
 
 ## Milestone 4 — Calibration (§4.2, §4.6, §4.7)
 
-- [ ] `voice/voice_calibration.gd` — profile shape, named profiles,
+- [x] `voice/voice_calibration.gd` — validated scalar measurements, named profiles,
       `user://sailor_man_voice.cfg` (not a `save_files` entry), missing-falsetto
-      fallback.
-- [ ] `ui/soundcheck.tscn` — Room · Speak · Low · High · Call, device picker,
-      dead/denied-mic message with a "Use buttons" path, headphones tip,
-      skippable after the first time.
-- [ ] Input source tunable: Auto / Microphone / Remo.
-- [x] Quiet Mode's gate bypass and mic sensitivity wired in the spike.
-      Speaking-level Quiet Mode calibration is still pending.
-- [ ] Voice-health card: 6 sung turns in 10 minutes → suggest water, offer Remo.
-- [ ] Web: Soundcheck acts as the user-gesture gate; detector budget without threads.
-- [ ] `tests/voice_calibration_test.gd`.
-- [ ] **Exit:** a fresh profile calibrates, round-trips, and a denied mic
-      falls back to Remo without a dead end.
+      fallback, merge saves and explicit damaged/newer/write failures.
+- [x] `ui/soundcheck.gd` / `.tscn` — Room · Speak · Low · High · Call, device
+      picker, explicit Enable, comfortable-voice/headphones tips, Skip high,
+      saved-profile reuse and a denied/dead-mic **Use Remo** exit. Only Save
+      publishes a complete profile; cancelling preserves earlier measurements.
+- [x] Persisted input source tunable: Auto / Microphone / Remo. Selection
+      never opens hardware; Auto falls back on unavailable/failed input.
+- [x] Quiet Mode uses measured speaking RMS and bypasses the carrying-level
+      gate without changing range or mark weights. Sensitivity remains available.
+- [x] Optional voice-rest card: six completed voiced microphone turns in a
+      rolling ten minutes suggest water/rest or Remo between duels. Failed,
+      silent, cancelled and Remo turns do not count; dismissal is non-coercive.
+- [x] Thread-free web analysis policy: eight detector windows per live update;
+      Stop and deadlines drain queued samples without truncation. Explicit
+      Enable is the gesture boundary. Actual browser/device QA remains open.
+- [x] `tests/voice_calibration_test.gd`, `tests/soundcheck_scene_test.gd` and
+      focused pipeline/deadline regressions.
+- [x] **Automated exit:** a fresh synthetic-PCM profile calibrates and
+      round-trips; denied/missing input has a usable Remo path. This verifies
+      implementation, not real microphones, permissions or authentic voices.
+
+The owner selected the pre-duel entry rather than extending shared Settings.
+Soundcheck suspends the chamber clock and preserves a pending answer. Its
+checked capture stays in the tree when the overlay closes: adoption transfers
+the reference, never reparents/restarts the live audio node. Quiet Mode uses
+the separately measured speaking level; Remo retains its own authored band.
+Only scalar profiles persist, never PCM/tracks or rest-reminder timestamps.
+
+**Automated validation (Godot 4.7.2, Windows):** all nine game suites and all
+15 framework suites exited 0 with Dummy audio and isolated profiles, with no
+script errors. All three native scene suites passed at 320x568, 568x320,
+1280x720 and 2560x1080 with normal/150% UI. Soundcheck covers Room, High,
+recording Call and Complete, including the visible chest-relative ribbon,
+pinned 44px actions and save errors revealed from a scrolled view.
+Regressions also cover measured high breaks/fallbacks, raw-RMS normalization,
+named selection without activation, non-reparented handoff, preserved pending
+answers, bounded Stop/deadline finishing, actual-silence cutoffs, device
+mismatches, Auto failures and optional rest actions.
+
+The refreshed 32-second walkthrough completes the real 2-0 Remo duel and
+shell results, now with an accurate Soundcheck/privacy caption. The silent
+960x540/30 fps Theora clip was fully decoded before replacement, with a new
+640x360 WebP poster; asset import and the framework instructions-video suite
+passed again. It contains synthetic controls, not microphone recordings.
+
+Known shared UI-WAV shutdown-resource diagnostics remain despite passing
+assertions and exit codes. Invalid-profile/microphone warnings and the Saves
+suite's malformed-backup errors are deliberate negative cases. No physical
+microphone was opened. Acoustic room-tail measurement, real device/browser/
+mobile permissions, authentic recordings and cultural review remain unverified.
 
 ## Milestone 5 — The canal (§8)
 

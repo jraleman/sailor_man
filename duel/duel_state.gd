@@ -142,7 +142,7 @@ func observe_frames(frames: Array[Dictionary]) -> String:
 	) > Frame.TIME_TOLERANCE:
 		return _error("Duel frames must continue the current window's 100 Hz clock.")
 	for frame: Dictionary in frames:
-		if close_requested:
+		if silence_closed() or _received_frames >= roundi(window_seconds * Frame.RATE_HZ):
 			break
 		if bool(frame["voiced"]):
 			_heard_voice = true
@@ -150,10 +150,13 @@ func observe_frames(frames: Array[Dictionary]) -> String:
 		else:
 			_silent_frames += 1
 		_received_frames += 1
-		close_requested = (
-			_heard_voice and _silent_frames >= roundi(SILENCE_SECONDS * Frame.RATE_HZ)
-		)
+		close_requested = close_requested or silence_closed()
 	return ""
+
+
+## A deadline stops capture, but queued analysis must still reach a real-silence cutoff.
+func silence_closed() -> bool:
+	return _heard_voice and _silent_frames >= roundi(SILENCE_SECONDS * Frame.RATE_HZ)
 
 
 ## A buffered poll may include audio after the first real-silence cutoff.

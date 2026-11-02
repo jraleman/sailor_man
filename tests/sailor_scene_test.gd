@@ -51,6 +51,8 @@ func _run() -> void:
 	var old_size := get_root().size
 	get_root().size = Vector2i(1280, 720)
 	values["ui/scale"] = 1.0
+	for option: Dictionary in Options.TUNABLES:
+		values[option["key"]] = option["default"]
 	for binding: Dictionary in Options.CONTROL_BINDINGS:
 		values[binding["key"]] = binding["default"]
 	settings.set("_values", values)
@@ -63,6 +65,8 @@ func _run() -> void:
 		return
 	var buses := AudioServer.bus_count
 	var game := packed.instantiate()
+	game.set("voice_profile_path", "user://sailor_practice_scene_unwritten_%d.cfg"
+		% OS.get_process_id())
 	get_root().add_child(game)
 	await process_frame
 	await process_frame

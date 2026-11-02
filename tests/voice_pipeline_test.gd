@@ -28,6 +28,7 @@ func _run() -> void:
 	_test_detector_range()
 	_test_detector_silence()
 	_test_buffer_boundaries()
+	_test_analysis_budget()
 	_test_track_octaves()
 	_test_microphone_source()
 	_test_dead_input()
@@ -121,6 +122,41 @@ func _test_track_octaves() -> void:
 			peak = maxf(peak, float(frame["cents"]))
 		_expect(absf(peak - jump) < 1.0, "Real register changes must bypass the median filter.")
 		_expect(Frame.track_error(frames).is_empty(), "Normalized tracks must stay at 100 Hz.")
+
+
+func _test_analysis_budget() -> void:
+	var samples := _tone(22050, 44100.0, 220.0)
+	var detector := Detector.new()
+	var observations := detector.push_samples(samples, 3)
+	_expect(observations.size() == 3 and detector.has_pending_analysis(),
+		"A live analysis slice must respect its window budget and retain the backlog.")
+	while detector.has_pending_analysis():
+		var part := detector.push_samples(PackedFloat32Array(), 3)
+		_expect(part.size() <= 3, "Draining cannot exceed the analysis-window budget.")
+		observations.append_array(part)
+	_expect(observations == Detector.new().push_samples(samples),
+		"Budgeting must preserve every detector window and sample-clock timestamp.")
+	var whole := Source.new()
+	whole.begin(44100.0, Frame.profile(), 0.004)
+	var expected := whole.push_samples(samples)
+	expected.append_array(whole.finish())
+	var sliced := Source.new()
+	sliced.begin(44100.0, Frame.profile(), 0.004)
+	var frames := sliced.push_samples(samples, 3)
+	while sliced.has_pending_analysis():
+		frames.append_array(sliced.push_samples(PackedFloat32Array(), 3))
+	frames.append_array(sliced.finish())
+	_expect(frames == expected, "Thread-free bounded processing must preserve normalized frames.")
+	sliced.begin(44100.0, Frame.profile(), 0.004)
+	_expect(sliced.push_samples(samples, 0).is_empty() and sliced.has_pending_analysis(),
+		"A GUI Stop must enqueue its final buffer without spending the live analysis budget.")
+	_expect(sliced.finish() == expected,
+		"An unlimited offline finish must preserve a buffer queued without analysis.")
+	sliced.begin(44100.0, Frame.profile(), 0.004)
+	sliced.push_samples(samples, 1)
+	sliced.cancel()
+	_expect(not sliced.has_pending_analysis() and sliced.finish().is_empty(),
+		"Cancel must discard abandoned analysis work and its normalizer lookahead.")
 
 
 func _test_microphone_source() -> void:

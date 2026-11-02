@@ -42,7 +42,7 @@ const STEPS: Array[Dictionary] = [
 	},
 	{
 		"time": 28.0, "title": "A prototype, not the finished voyage",
-		"body": "Real recordings, microphone QA, cultural review and saved Soundcheck profiles remain pending.",
+		"body": "Soundcheck saves measurements, not audio. Real recordings, device QA and cultural review remain pending.",
 	},
 ]
 const CALL_EVENTS: Array[Dictionary] = [
@@ -88,6 +88,7 @@ func settings_overrides() -> Dictionary:
 	var values := {
 		Options.QUIET_MODE_KEY: false, Options.LONG_WINDOWS_KEY: false,
 		Options.MIC_SENSITIVITY_KEY: 1.0, "ui/scale": 1.0,
+		Options.INPUT_SOURCE_KEY: Options.InputSource.REMO,
 	}
 	for binding: Dictionary in Options.CONTROL_BINDINGS:
 		values[binding["key"]] = binding["default"]

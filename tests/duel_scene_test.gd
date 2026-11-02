@@ -42,7 +42,8 @@ func _run() -> void:
 	var original: Dictionary = settings.get("_values").duplicate(true)
 	var values := original.duplicate(true)
 	values["ui/scale"] = 1.0
-	values[Options.LONG_WINDOWS_KEY] = false
+	for option: Dictionary in Options.TUNABLES:
+		values[option["key"]] = option["default"]
 	for binding: Dictionary in Options.CONTROL_BINDINGS:
 		values[binding["key"]] = binding["default"]
 	settings.set("_values", values)
@@ -58,6 +59,8 @@ func _run() -> void:
 		return
 	var buses := AudioServer.bus_count
 	var game := packed.instantiate()
+	game.set("voice_profile_path", "user://sailor_duel_scene_unwritten_%d.cfg"
+		% OS.get_process_id())
 	get_root().add_child(game)
 	await process_frame
 	await process_frame
@@ -83,6 +86,7 @@ func _run() -> void:
 	await create_timer(0.1, true, false, true).timeout
 	_expect(AudioServer.bus_count == buses, "Leaving the duel must release every owned bus.")
 	settings.set("_values", original)
+	settings.call("save")
 	get_root().min_size = old_minimum
 	get_root().size = old_size
 	settings.call("_update_content_scale")

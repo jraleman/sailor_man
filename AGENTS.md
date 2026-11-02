@@ -11,8 +11,8 @@ advertise a finished voyage or recorded salomero opponents.
   terms, two-human hot seat in v1, and grito as part of Remate.
 - The manifest currently enables one solo duel mode. The game owns its
   placeholder rival; it does not offer a second generic vs-CPU setup mode.
-  Campaign, production rival crews, saved
-  calibration, hot seat, store and gallery are not implemented.
+  Soundcheck and named calibration profiles are implemented. Campaign,
+  production rival crews, hot seat, store and gallery are not implemented.
 - No performer recordings or cultural partner are available yet. Synthetic
   fixtures prove algorithm behavior, not authentic saloma quality. The real
   recording comparison in DESIGN Milestone 1 remains unverified. The owner
@@ -51,17 +51,40 @@ advertise a finished voyage or recorded salomero opponents.
   Equal winning margins give the decider call to the loser of tanda two.
   `judges.gd` reweights the scorer's marks; `rival_book.gd` uses that same
   scorer. The synthetic rival must remain beatable through actual Remo input.
+- `voice_calibration.gd` is the unscored Room/Speak/Low/High/Call model and
+  scalar-only profile codec. Only complete validated measurements save;
+  skipped/unobserved high breaks retain `falsetto_calibrated = false`.
+  A preview range is for drawing, not a usable or saveable profile.
 
 ## Microphone and UI
 
-- Capture starts only after **Enable microphone**. Opening scenes, examples,
-  tutorial recording and tests must not request microphone access.
-- The two-second room check is not full vocal calibration. Chest frequency
-  and carrying RMS are temporary manual inputs. Quiet Mode currently bypasses
-  the power gate; speaking-level calibration belongs to a later milestone.
-- Never monitor microphone audio or persist PCM, tracks or profiles in this
-  experiment. Release the owned capture bus on failure, pause and scene exit;
+- Capture starts only after **Enable microphone**. Opening scenes, selecting
+  profiles/sources, tutorial recording and tests must not request microphone access.
+- Soundcheck is a game-owned **pre-duel button**, not a shared Settings action
+  row. The overlay suspends duel stepping and blocks underlying input. Back,
+  pause, focus loss and failure discard partial takes without touching a save.
+- The two-second room check alone is not full calibration. The dev workbench
+  retains temporary manual references; gameplay uses the saved human profile.
+  Keep that profile separate from Remo's authored band. Quiet Mode substitutes
+  measured speaking RMS, never pitch/range/mark weights.
+- Never monitor microphone audio or persist PCM/tracks. Only completed named
+  scalar profiles/selection belong in `user://sailor_man_voice.cfg`; it is not
+  progress or a `save_files` entry. Refuse damaged/newer files without rewriting
+  them. Source/reminder options use the shared Settings persistence.
+- Soundcheck mounts capture beside the transient overlay, not beneath it.
+  Adoption transfers the reference, **not the node's parent**: a tree exit
+  stops `MicCapture` and its `AudioStreamPlayer`. Release the owned bus on failure,
+  pause and scene exit;
   identify it by its unique name, not a stale bus index.
+- Auto prefers an available calibrated device, otherwise Remo. It does not open
+  hardware, and a failed mic falls back without rewriting the Auto preference.
+- Live web analysis yields after eight detector windows. Zero-budget pushes
+  queue only; default `-1` is unlimited for offline work. Drain bounded pending
+  analysis before `finish`; cancellation drops it. A wall-clock deadline stops
+  capture, not already queued analysis. Preserve the actual-silence frame cutoff.
+- Rest reminders count only completed voiced microphone turns, six in a rolling
+  ten minutes. They stay session-local across replays and offer a choice only
+  between duels. Dismissal, disabled reminders and Remo must remain non-coercive.
 - Keep errors visible and the explicitly synthetic examples usable when a
   microphone is absent, disabled or denied. Extra amplitude earns no points.
 - Starting Remo disconnects capture. Its neutral synthetic preview is on the
@@ -123,11 +146,14 @@ godot --headless --path . --script res://games/sailor_man/tests/remo_source_test
 godot --headless --path . --script res://games/sailor_man/tests/duel_state_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/voice_calibration_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 ```
 
-The two windowed runs verify actual rendered layouts; they also accept
+The three windowed runs verify actual rendered layouts; they also accept
 `--sailor-capture-dir=<absolute directory>` after `--`. Use isolated user data
 for integration runs. On Windows, use the console executable or
 `Start-Process -Wait -PassThru` and check `ExitCode`; a direct GUI-executable
@@ -141,6 +167,8 @@ usable window size and UI scale before coordinate-based input checks, even
 headlessly, and resume the real pause menu rather than only freeing it.
 Native duel checks include full boat-mesh framing, an isolated 3D world,
 a nonempty render below 60 draw calls and all eight size/UI-scale combinations.
+Soundcheck covers Room/High/Call/Complete, including the live ribbon staying
+visible after resize and failed saves revealing their status in the scroller.
 Keep the duel suite's audio-mixer cleanup wait: stopping playback is queued,
 and two fast headless process frames alone do not release it before shutdown.
 These do not verify physical devices, OS permissions, acoustic output or real
