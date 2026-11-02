@@ -42,6 +42,7 @@ var _last_result: Dictionary = {}
 var _noise_floor := 0.004
 var _recording := false
 var _elapsed := 0.0
+var _no_audio_seconds := 0.0
 var _window := NORMAL_WINDOW
 var _quiet := false
 var _sensitivity := 1.0
@@ -79,6 +80,15 @@ func _process(delta: float) -> void:
 	if not _recording:
 		return
 	_elapsed += delta
+	_no_audio_seconds = _no_audio_seconds + delta if frames.is_empty() else 0.0
+	if _no_audio_seconds >= Capture.NO_INPUT_TIMEOUT:
+		var error := (
+			"No microphone audio arrived for %.0f seconds. Check the device and "
+			+ "microphone permission, then enable it again. Synthetic examples still work."
+		) % Capture.NO_INPUT_TIMEOUT
+		push_warning("Sailor Man recording: %s" % error)
+		_on_capture_failed(error)
+		return
 	_track.append_array(_source.push_frames(frames))
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_status.text = "Listening: %.1f / %.0f s. Stop whenever comfortable." % [_elapsed, _window]
@@ -111,7 +121,8 @@ func load_example(shaped: bool) -> void:
 			elif t >= 4.6 and t < 5.0:
 				pitch = 1000.0 * (5.0 - t) / 0.4
 		_track.append(Frame.make(t, pitch, t < 5.0, 1.0 if t < 5.0 else 0.0))
-	_judge()
+	if not _judge():
+		return
 	_status.text = (
 		"SYNTHETIC shaped fixture - not a saloma recording."
 		if shaped else "SYNTHETIC flat hold - not a saloma recording."
@@ -120,8 +131,8 @@ func load_example(shaped: bool) -> void:
 
 ## Eco uses the next performance, not a retroactive perfect match of this one.
 func keep_reference() -> void:
-	if _track.is_empty():
-		_status.text = "Record or load a call before keeping a reference."
+	if _recording or _track.is_empty() or not bool(_last_result.get("valid", false)):
+		_status.text = "Finish and score a valid call before keeping a reference."
 		return
 	_reference = _track.duplicate(true)
 	_clear_reference.disabled = false
@@ -209,40 +220,61 @@ func _toggle_recording() -> void:
 	_track.clear()
 	_last_result.clear()
 	_elapsed = 0.0
+	_no_audio_seconds = 0.0
 	_recording = true
 	_marks.text = "Listening. Use a comfortable voice; extra volume earns nothing."
+	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_update_controls()
 
 
 func _finish_recording() -> void:
 	if not _recording:
 		return
+	# GUI input can stop the call before this frame's regular poll.
+	if _capture != null and bool(_capture.call("is_ready")):
+		var frames: PackedVector2Array = _capture.call("poll")
+		_track.append_array(_source.push_frames(frames))
 	_track.append_array(_source.finish())
 	_recording = false
-	_judge()
-	if not bool(_last_result["valid"]):
+	if _track.is_empty():
+		var error := (
+			"No analyzable audio was captured. Try a longer call, or check the "
+			+ "microphone device and permission."
+		)
+		_last_result = {"valid": false, "error": error}
+		_status.text = error
+		_marks.text = "No call scored."
+		push_warning("Sailor Man recording: %s" % error)
 		_update_controls()
+		return
+	if not _judge():
 		return
 	_status.text = (
 		"Call scored. Rest whenever needed; try the synthetic examples instead."
 		if float(_last_result.get("total", 0.0)) > 0.0
 		else "No voiced input was detected. Check the device or try a synthetic example."
 	)
-	_update_controls()
 
 
 func _cancel_recording() -> void:
 	if _recording:
 		_source.finish()
+		_track.clear()
+		_last_result.clear()
+		_marks.text = "Call cancelled. No score recorded."
+		_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_recording = false
 	_elapsed = 0.0
+	_no_audio_seconds = 0.0
 
 
-func _judge() -> void:
+func _judge() -> bool:
 	_last_result = Scorer.score(_track, _profile, _reference, _quiet)
 	if not bool(_last_result["valid"]):
 		_status.text = str(_last_result["error"])
-		return
+		_marks.text = "No call scored."
+		_update_controls()
+		return false
 	var lines := PackedStringArray()
 	lines.append("%s: %.1f / 100" % [
 		"ANSWER" if bool(_last_result["answering"]) else "CALL",
@@ -266,6 +298,7 @@ func _judge() -> void:
 	print("Sailor Man scorer: %s" % JSON.stringify(_last_result))
 	score_ready.emit(_last_result)
 	_update_controls()
+	return true
 
 
 func _reload_options() -> void:
@@ -329,7 +362,9 @@ func _update_controls() -> void:
 	_record.disabled = _capture == null or not bool(_capture.call("is_ready"))
 	_record.text = "Stop and score" if _recording else "Record call"
 	_enable.text = "Disconnect mic" if _capture != null else "Enable microphone"
-	_reference_button.disabled = _track.is_empty() or _recording
+	_reference_button.disabled = (
+		_recording or _track.is_empty() or not bool(_last_result.get("valid", false))
+	)
 	_clear_reference.disabled = _reference.is_empty() or _recording
 	_device.disabled = _capture != null
 	_chest.editable = not _recording

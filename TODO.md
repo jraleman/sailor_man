@@ -95,6 +95,10 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
       arbitrary chunks and full source/scorer flow.
 - [x] `tests/sailor_scene_test.gd` — real shell, buffered recording UI,
       options, error recovery, pause/results/replay and responsive rendering.
+- [x] Recording-failure hardening: no score/call for missing PCM, four-second
+      listening-window stalls disconnect capture, partial turns cannot replace
+      scored references, and pause preserves the earlier reference. Regression
+      cases also cover resumed buffers and actual captured silence.
 - [ ] **Exit:** a real saloma and a flat yell score clearly differently on the
       spike, checked against real salomero recordings (blocked on §15.2).
       Record the numbers here before moving on.
@@ -105,6 +109,10 @@ These fixtures are not recordings and do not satisfy the exit above. Real
 salomero recordings, physical microphones/permissions and cultural review
 remain unverified. Do not proceed to Remo/duel implementation on this evidence.
 
+The physical-microphone checklist is in `README.md`; it still requires a person
+to explicitly enable a device and test permissions, comfortable calls, Quiet
+Mode and interrupted capture. Automated fixtures never open hardware.
+
 **Automated validation (Godot 4.7.2, Windows):** import, all four game suites,
 all 15 framework suites and bounded native launches passed. The scene suite
 also passed actual OpenGL rendering at 320×568, 568×320, 1280×720 and
@@ -114,6 +122,15 @@ despite exiting 0; their origin has not been established. `saves_test` logs
 the expected malformed-backup parse errors. Sailor Man's own suites and
 launches had no engine errors. The synthetic tutorial was re-recorded from
 the real buttons, validated, encoded and reimported.
+
+**Recording recovery follow-up:** the expanded scene suite passed headlessly
+and in a real graphics window, including all eight size/UI-scale combinations.
+Stop drains queued PCM, captured silence still scores zero, and interrupted
+turns neither count nor overwrite references. All 15 framework suites again
+exited 0, with the same shutdown-resource warnings and expected bad-backup
+errors noted above. This follow-up explicitly used the Dummy audio driver;
+no physical microphone was opened. The walkthrough's synthetic-only flow is
+unchanged.
 
 ## Milestone 2 — Remo mode (§4.5)
 

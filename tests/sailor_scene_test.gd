@@ -10,6 +10,7 @@ const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 ## Buffered PCM exercises recording without opening a physical input device.
 class BufferedCapture extends Node:
 	var discarded := false
+	var stopped := false
 	var pending := PackedVector2Array()
 
 	func is_ready() -> bool:
@@ -24,6 +25,7 @@ class BufferedCapture extends Node:
 		return result
 
 	func stop() -> void:
+		stopped = true
 		pending = PackedVector2Array()
 
 var _failures := PackedStringArray()
@@ -85,11 +87,28 @@ func _run() -> void:
 		not bool(flat["answering"]) and float(flat["total"]) < float(shaped["total"]) - 0.3,
 		"The interactive examples must clearly distinguish shape from a flat hold."
 	)
+	_test_empty_recording(game, spike)
 	_test_recording_ui(spike)
+	_test_stalled_recording(game, spike)
 	spike.call("keep_reference")
 	spike.call("load_example", true)
 	await _test_layouts(spike)
+	var pause_capture := BufferedCapture.new()
+	pause_capture.pending = _microphone_pcm()
+	spike.add_child(pause_capture)
+	spike.set("_capture", pause_capture)
+	spike.call("_toggle_recording")
+	spike.call("_process", 0.1)
+	var calls_before_pause := int(game.get("_calls"))
+	var reference_before_pause: Array = (spike.get("_reference") as Array).duplicate(true)
 	game.call("open_pause_menu")
+	_expect(
+		pause_capture.stopped and not bool(spike.get("_recording"))
+		and (spike.get("_track") as Array).is_empty()
+		and (spike.get("_reference") as Array) == reference_before_pause
+		and int(game.get("_calls")) == calls_before_pause,
+		"Pause must discard the unfinished call without scoring it or losing the saved reference."
+	)
 	await process_frame
 	var pause := game.get("_pause_menu") as Node
 	_expect(pause != null and paused, "The spike must open the real shell pause overlay.")
@@ -121,6 +140,36 @@ func _run() -> void:
 	quit(0 if _failures.is_empty() else 1)
 
 
+func _test_empty_recording(game: Node, spike: Control) -> void:
+	var calls := int(game.get("_calls"))
+	var score := int(game.get("_scores")[0])
+	var capture := BufferedCapture.new()
+	spike.add_child(capture)
+	spike.set("_capture", capture)
+	spike.call("_toggle_recording")
+	spike.call("_finish_recording")
+	var result: Dictionary = spike.get("_last_result")
+	_expect(
+		not bool(result.get("valid", true))
+		and (spike.get_node("%Status") as Label).text.contains("No analyzable audio"),
+		"Stopping before any PCM can be analyzed must explain the failure, not score silence."
+	)
+	_expect(
+		int(game.get("_calls")) == calls and int(game.get("_scores")[0]) == score,
+		"An empty recording must not add a call or replace the last real score."
+	)
+	capture.pending.resize(int(AudioServer.get_mix_rate() * 0.2))
+	spike.call("_toggle_recording")
+	spike.call("_finish_recording")
+	result = spike.get("_last_result")
+	_expect(
+		bool(result.get("valid", false)) and is_zero_approx(float(result["total"]))
+		and int(game.get("_calls")) == calls + 1,
+		"Stop must drain queued PCM; actual silence is a valid zero-score call, unlike missing audio."
+	)
+	spike.call("stop_capture")
+
+
 func _test_recording_ui(spike: Control) -> void:
 	var settings := get_root().get_node("Settings")
 	var original: Dictionary = settings.get("_values").duplicate(true)
@@ -131,10 +180,8 @@ func _test_recording_ui(spike: Control) -> void:
 	settings.set("_values", temporary)
 	settings.emit_signal("changed", Options.LONG_WINDOWS_KEY, true)
 	var capture := BufferedCapture.new()
-	var rate := AudioServer.get_mix_rate()
-	for index in int(rate * 1.2):
-		var sample := sin(TAU * 160.0 * float(index) / rate) * 0.05 if index < rate else 0.0
-		capture.pending.append(Vector2(sample, sample))
+	var pcm := _microphone_pcm()
+	capture.pending = pcm
 	spike.add_child(capture)
 	spike.set("_capture", capture)
 	spike.call("_toggle_recording")
@@ -146,7 +193,11 @@ func _test_recording_ui(spike: Control) -> void:
 		is_equal_approx(float(spike.get("_window")), 9.0),
 		"Long windows must reach the interactive recording path."
 	)
-	spike.call("_process", 9.1)
+	spike.call("_process", 2.0)
+	spike.call("_process", 2.0)
+	capture.pending = pcm
+	spike.call("_process", 2.0)
+	spike.call("_process", 3.1)
 	var result: Dictionary = spike.get("_last_result")
 	_expect(
 		not bool(spike.get("_recording")) and bool(result.get("valid", false))
@@ -161,12 +212,21 @@ func _test_recording_ui(spike: Control) -> void:
 		{"t": 0.0, "cents": 0.0, "voiced": false, "level": -1.0},
 	]
 	spike.set("_reference", invalid_reference)
+	capture.pending = pcm
 	spike.call("_toggle_recording")
+	spike.call("_process", 1.2)
 	spike.call("_finish_recording")
 	_expect(
 		not bool((spike.get("_last_result") as Dictionary)["valid"])
 		and (spike.get_node("%Status") as Label).text.contains("negative"),
 		"A rejected track must retain its scoring error, not claim no voice was heard."
+	)
+	(spike.get_node("%ShapedExample") as Button).pressed.emit()
+	_expect(
+		not bool((spike.get("_last_result") as Dictionary)["valid"])
+		and (spike.get_node("%Status") as Label).text.contains("negative")
+		and (spike.get_node("%KeepReference") as Button).disabled,
+		"A rejected example must retain its error and cannot become a reference."
 	)
 	spike.call("clear_reference")
 	spike.call("_on_capture_failed", "Microphone permission denied (test).")
@@ -182,6 +242,61 @@ func _test_recording_ui(spike: Control) -> void:
 	)
 	settings.set("_values", original)
 	settings.emit_signal("changed", Options.LONG_WINDOWS_KEY, original[Options.LONG_WINDOWS_KEY])
+
+
+func _test_stalled_recording(game: Node, spike: Control) -> void:
+	spike.call("keep_reference")
+	var reference: Array = (spike.get("_reference") as Array).duplicate(true)
+	var calls := int(game.get("_calls"))
+	var score := int(game.get("_scores")[0])
+	var capture := BufferedCapture.new()
+	capture.pending = _microphone_pcm()
+	spike.add_child(capture)
+	spike.set("_capture", capture)
+	spike.call("_toggle_recording")
+	spike.call("_process", 1.2)
+	_expect(
+		not (spike.get("_track") as Array).is_empty(),
+		"The stalled-input regression must begin with actual analyzed PCM."
+	)
+	spike.call("_process", 2.0)
+	_expect(
+		bool(spike.get("_recording")),
+		"A short gap between buffers must not disconnect a listening microphone."
+	)
+	spike.call("_process", 2.1)
+	_expect(
+		spike.get("_capture") == null and capture.stopped
+		and not bool(spike.get("_recording"))
+		and (spike.get_node("%Status") as Label).text.contains("No microphone audio"),
+		"A four-second PCM stall must disconnect capture and display its failure."
+	)
+	_expect(
+		int(game.get("_calls")) == calls and int(game.get("_scores")[0]) == score,
+		"A stalled recording must not submit a partial performance as a score."
+	)
+	spike.call("stop_capture")
+	_expect(
+		(spike.get("_track") as Array).is_empty()
+		and (spike.get_node("%KeepReference") as Button).disabled,
+		"An interrupted call must not leave an unfinished track available as a reference."
+	)
+	spike.call("keep_reference")
+	_expect(
+		(spike.get("_reference") as Array) == reference,
+		"Attempting to keep an interrupted call must preserve the earlier valid reference."
+	)
+	spike.call("clear_reference")
+	spike.call("load_example", true)
+
+
+func _microphone_pcm() -> PackedVector2Array:
+	var result := PackedVector2Array()
+	var rate := AudioServer.get_mix_rate()
+	for index in int(rate * 1.2):
+		var sample := sin(TAU * 160.0 * float(index) / rate) * 0.05 if index < rate else 0.0
+		result.append(Vector2(sample, sample))
+	return result
 
 
 func _test_layouts(spike: Control) -> void:

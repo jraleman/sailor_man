@@ -47,6 +47,10 @@ experiment. Do not advertise a playable voyage, opponents or Remo controls.
   identify it by its unique name, not a stale bus index.
 - Keep errors visible and the explicitly synthetic examples usable when a
   microphone is absent, disabled or denied. Extra amplitude earns no points.
+- Missing/unanalyzable PCM is a recording failure, not a zero-score call.
+  Actual captured silence may score zero. Four seconds without buffers during
+  a call aborts capture; cancelled tracks cannot become references, and a
+  previously scored reference survives pause/failure.
 - `ui/scorer_spike.gd` is shared by the shell and dev-only scene.
   Scale fonts/targets against the real canvas transform, not only logical
   viewport bounds. Check portrait, short landscape, ultrawide and 150% UI size.

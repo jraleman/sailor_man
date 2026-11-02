@@ -27,6 +27,14 @@ stops recording after the room check; it is rebindable under Controls.
 Recording stops automatically at six seconds, or nine with Longer listening
 windows. Pause disconnects the microphone.
 
+During a call, four seconds without incoming audio buffers aborts recording
+and disconnects capture. Stopping before any audio can be analyzed reports an
+error instead of counting a zero-score call; actual captured silence can still
+score zero. Pausing, disconnecting or failing a call discards its unfinished
+track while preserving an earlier scored reference. Only successfully scored
+calls can become references. Stop drains already queued audio before judging,
+even when pressed before the next regular input poll.
+
 The shaped and flat examples are explicitly **synthetic fixtures**, available
 without microphone permission. **Keep reference** retains a call in memory;
 the next recording/example is an answer and can earn Eco. **Finish session**
@@ -64,8 +72,16 @@ godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --g
 
 The windowed scene run checks real rendering at 320x568, 568x320, 1280x720
 and 2560x1080 with normal and 150% UI size. Tests do not enable a physical
-microphone. The microphone core was adapted from DeskCanSaw's Dead Metal Jam;
-Sailor Man has no runtime dependency on that game.
+microphone. Buffered-PCM regressions distinguish absent data from actual
+silence, check stall recovery and resumed buffers, and verify that pause/error
+paths cannot score or retain unfinished calls. The microphone core was adapted
+from DeskCanSaw's Dead Metal Jam; Sailor Man has no runtime dependency on it.
+
+For physical-device QA, explicitly enable a microphone and check the room
+measurement, a comfortable call, Quiet Mode and Stop. Then test unavailable
+or denied input, loss of incoming buffers, and pausing mid-call: no failed turn
+should change the previous score or replace its reference, and the synthetic
+examples should remain usable. This manual pass has not been completed.
 
 **Still unverified:** physical microphones and OS permissions, web/mobile
 capture, real saloma scoring and cultural review. No licensed performer

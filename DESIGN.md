@@ -226,6 +226,12 @@ frames at **100 Hz** *(tune)*. The scorer never knows where frames came from.
 That is how buttons, the CPU and tests become first-class: each produces the
 same kind of track as a voice.
 
+The microphone spike treats missing/unanalyzable PCM as a recording failure,
+not a silent performance. Four seconds without new buffers aborts the call;
+actual captured silence may still score zero. A cancelled call cannot replace
+a scored reference. These checks do not establish that physical microphone
+permissions or real saloma scoring have been validated.
+
 Copy and adapt Dead Metal Jam's microphone stack into this folder, **not**
 import it. There must be no game-to-game dependency:
 
