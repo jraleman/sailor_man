@@ -9,20 +9,19 @@ the item works **and** its tests pass; each phase ends with an exit check.
 
 ---
 
-## Blocked on the owner (DESIGN §15)
+## Owner decisions and remaining blockers (DESIGN §15)
 
 These change names, keys or scope that become permanent once shipped. Nothing
 below that depends on one should start until it is answered.
 
-- [ ] **Title** (§15.1) — fixes `custom_user_dir_name` forever. Blocks the
-      `project.godot` feature-tag entries in Phase 9.
+- [x] **Title** (§15.1) — Sailor Man. Feature-tag/save-directory entries still
+      belong to the shipping phase.
 - [ ] **Cultural partner** (§15.2) — blocks the Milestone 1 real-voice gate,
       Phase 6 recordings and the Phase 7 review.
-- [ ] **Spanish localisation in v1?** (§15.3) — if yes, route all copy through a
-      translation table from Phase 0 rather than retrofitting it.
+- [x] **Language** (§15.3) — English first, keeping Spanish saloma terms.
 - [ ] **Champion title gender** (§15.4) — "Rey / Reina del Canal" or neutral.
-- [ ] **Three-seat hot seat in v1?** (§15.5) — `max_local_players` 2 or 3.
-- [ ] **Grito as its own move?** (§15.6) — affects scorer marks and bindings.
+- [x] **Hot seat** (§15.5) — two humans in v1; not enabled in the spike.
+- [x] **Grito** (§15.6) — part of Remate, no separate action.
 - [ ] **Real place names** (§15.7) — Gatún, Culebra, Miraflores and so on,
       without canal-authority branding.
 - [ ] **"Recalibrate voice" button on the Game tab** (§10) — tunables only
@@ -32,14 +31,12 @@ below that depends on one should start until it is answered.
 
 ## Discrepancies found while planning
 
-- [ ] `mesh_builder.gd` lives in `games/cube_trials/world/`; Chicken Pit has no
-      `world/` folder. Copy it from Cube Trials (§7.1 says "chicken_pit/cube_trials").
-- [ ] The project targets Godot **4.7**, but this machine has **4.6.2**
-      (`/usr/bin/godot`). Install 4.7 before trusting any test result.
+- [x] `mesh_builder.gd` lives in `games/cube_trials/world/`; DESIGN §7.1 now
+      names that source. No canal meshes are needed for the spike.
+- [x] Verified Godot **4.7.2** on Windows for the prototype's import/tests.
 - [ ] Hot seat arenas: §3.5 says "any unlocked level", while §5.2 says every
       arena only after the champion. Pick one and fix `DESIGN.md`.
-- [ ] Dulce's Adventure (`menu_order = 9`) has only a `DESIGN.md` so far.
-      Keep `10` anyway so the order doesn't shift later.
+- [x] Dolce's Adventure is implemented at `menu_order = 9`; Sailor Man keeps `10`.
 
 ---
 
@@ -49,50 +46,74 @@ As soon as `game.gd` exists, `GameCatalog` loads it and every framework suite
 sweeps it. Start with a stub that passes them, and keep them green from here on.
 
 - [ ] Commit `DESIGN.md` and this `TODO.md` to the game repository.
-- [ ] Folder `AGENTS.md` with game-specific agent notes, as Chicken Pit has.
-- [ ] `sailor_man_options.gd` — constants-only: `GAME_ID`, tunable keys (§10),
-      binding keys (§4.5), with empty `LEVELS`, `CAPTAINS`, store and gallery for now.
-- [ ] `game.gd` — minimal manifest (§7.4): id, title, tagline, `menu_order = 10`,
+- [x] Folder `AGENTS.md` with game-specific agent notes.
+- [x] `sailor_man_options.gd` — constants-only: `GAME_ID`, Quiet Mode, longer
+      windows, sensitivity and the spike's rebindable Record action. Future
+      Remo bindings, levels, captains, store and gallery stay undeclared.
+- [x] `game.gd` — minimal manifest (§7.4): id, title, tagline, `menu_order = 10`,
       `CONTROL_STYLE_CUSTOM_KEYS`, `uses_shell_round_rules = false`, tunables,
       bindings. Leave multiplayer off until Phase 8.
-- [ ] `gameplay.tscn` (inherits `game_shell.tscn`) + `gameplay.gd` (`extends
+- [x] `gameplay.tscn` (inherits `game_shell.tscn`) + `gameplay.gd` (`extends
       GameShell`, `game_id()`, `super(value)` in the reduced-motion and
       intense-effects overrides).
-- [ ] `tests/` folder and a smoke test that loads the manifest by path.
-- [ ] `godot --headless --path . --import`
-- [ ] **Exit:** all 15 framework suites exit 0 with `--game=all`, and
-      `godot --path . -- --game=sailor_man` opens the stub.
+- [x] `tests/` folder and a smoke test that loads the manifest by path.
+- [x] Prototype SVG icon and labelled synthetic walkthrough/poster, required
+      by the catalog-wide theme/media tests. Final game art remains Phase 8.
+- [x] `godot --headless --path . --import`
+- [x] **Exit:** all 15 framework suites exit 0 with `--game=all`; standalone
+      source startup and direct workbench/tool launches exit cleanly.
 
 ## Milestone 1 — Scorer spike (§4.1, §4.4) ⚠ riskiest
 
-- [ ] `voice/voice_frame.gd` — `{t, cents, voiced, level}`, 100 Hz.
-- [ ] `tests/voice_track_fixture.gd` — synthetic track builder: hold, glide, jump,
+- [x] `voice/voice_frame.gd` — `{t, cents, voiced, level}`, 100 Hz.
+- [x] `tests/voice_track_fixture.gd` — synthetic track builder: hold, glide, jump,
       gap, wobble, fade, cut-off, all relative to a profile.
-- [ ] `duel/saloma_scorer.gd` (`RefCounted`, every threshold a top-level const):
-  - [ ] Voiced segments: 40 ms hysteresis, bridge gaps ≤ 60 ms
-  - [ ] Aliento: longest segment / 5 s
-  - [ ] Quiebre: ≥ 500 cents in ≤ 90 ms into/out of the falsetto band, cleanness,
+- [x] `duel/saloma_scorer.gd` (`RefCounted`, every threshold a top-level const):
+  - [x] Voiced segments: 40 ms hysteresis, bridge gaps ≤ 60 ms
+  - [x] Aliento: longest segment / 5 s
+  - [x] Quiebre: ≥ 500 cents in ≤ 90 ms into/out of the falsetto band, cleanness,
         softer rule (≥ 400 at 0.8), octave guard
-  - [ ] Altura: p90 − p10 against the calibrated range
-  - [ ] Remate: falling glide ≥ 300 cents or crisp stop; fade = half
-  - [ ] Eco: median-relative contours, resample to 64, DTW with a ±12 % band,
-        distance curve (sincere ≈ 0.6, near copy ≈ 0.9)
-  - [ ] Weights, Eco = 0 on calls with the rest rescaled, Fuerza gate (−20 %),
+  - [x] Altura: p90 − p10 against the calibrated range
+  - [x] Remate: progressive falling glide ≥ 300 cents or crisp stop; fade = half
+  - [x] Eco: median-relative contours, resample to 64, DTW with a ±12 % band.
+        The distance curve still needs real-voice tuning.
+  - [x] Weights, Eco = 0 on calls with the rest rescaled, Fuerza gate (−20 %),
         Quiet Mode bypass
-  - [ ] Evidence output: break positions and the longest-breath span
-- [ ] `tests/saloma_scorer_test.gd` — every case in §13.
-- [ ] `tests/voice_normalisation_test.gd` — low and high profile within 2 %.
-- [ ] Port from `dead_metal_jam/input/` (copy, never import):
-  - [ ] `voice/mic_capture.gd` — muted "Saloma" bus, dead-mic test
-  - [ ] `voice/pitch_detector.gd` — MPM, 70–1100 Hz, continuous cents
-  - [ ] `voice/voice_track.gd` — smoothing, voicing hysteresis, octave guard
+  - [x] Evidence output: break positions and the longest-breath span
+- [x] `tests/saloma_scorer_test.gd` — synthetic scorer cases in §13.
+- [x] `tests/voice_normalisation_test.gd` — low and high profile within 2 %.
+- [x] Port from `dead_metal_jam/input/` (copy, never import):
+  - [x] `voice/mic_capture.gd` — uniquely named muted "Saloma" bus, explicit
+        disabled/dead/no-data failures; physical-device QA remains open
+  - [x] `voice/pitch_detector.gd` — MPM, 70–1100 Hz, continuous cents
+  - [x] `voice/voice_track.gd` — smoothing, voicing hysteresis, octave guard
         that keeps real jumps
-  - [ ] `voice/mic_voice_source.gd` — emits `VoiceFrame`s
-- [ ] `tools/scorer_spike.tscn` — record one mic turn, print the five marks and
-      draw the track. Dev-only.
+  - [x] `voice/mic_voice_source.gd` — emits `VoiceFrame`s
+- [x] `tools/scorer_spike.tscn` — opt-in microphone window, five marks and pitch
+      ribbon; hardware-free examples and kept-reference Eco. Dev-only.
+- [x] `tests/voice_pipeline_test.gd` — synthesized PCM, 44.1/48/96 kHz windows,
+      arbitrary chunks and full source/scorer flow.
+- [x] `tests/sailor_scene_test.gd` — real shell, buffered recording UI,
+      options, error recovery, pause/results/replay and responsive rendering.
 - [ ] **Exit:** a real saloma and a flat yell score clearly differently on the
       spike, checked against real salomero recordings (blocked on §15.2).
       Record the numbers here before moving on.
+
+**Synthetic benchmark only:** shaped call **88.8688/100**, flat hold with a
+crisp stop **47.0588/100**, identical shaped answer **90.5385/100** (Eco 1.0).
+These fixtures are not recordings and do not satisfy the exit above. Real
+salomero recordings, physical microphones/permissions and cultural review
+remain unverified. Do not proceed to Remo/duel implementation on this evidence.
+
+**Automated validation (Godot 4.7.2, Windows):** import, all four game suites,
+all 15 framework suites and bounded native launches passed. The scene suite
+also passed actual OpenGL rendering at 320×568, 568×320, 1280×720 and
+2560×1080 with normal and 150% UI size, including a standalone catalog.
+`lives_mode_test` and `single_game_test` still log resources in use at shutdown
+despite exiting 0; their origin has not been established. `saves_test` logs
+the expected malformed-backup parse errors. Sailor Man's own suites and
+launches had no engine errors. The synthetic tutorial was re-recorded from
+the real buttons, validated, encoded and reimported.
 
 ## Milestone 2 — Remo mode (§4.5)
 
@@ -140,7 +161,8 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
       dead/denied-mic message with a "Use buttons" path, headphones tip,
       skippable after the first time.
 - [ ] Input source tunable: Auto / Microphone / Remo.
-- [ ] Quiet Mode and mic sensitivity tunables wired to scorer and capture.
+- [x] Quiet Mode's gate bypass and mic sensitivity wired in the spike.
+      Speaking-level Quiet Mode calibration is still pending.
 - [ ] Voice-health card: 6 sung turns in 10 minutes → suggest water, offer Remo.
 - [ ] Web: Soundcheck acts as the user-gesture gate; detector budget without threads.
 - [ ] `tests/voice_calibration_test.gd`.
@@ -223,7 +245,7 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
 - [ ] Remote for this repository → `.gitmodules` + gitlink (two commits).
 - [ ] Root `AGENTS.md`: games table, submodules, options files, test table,
       feature tags, blurb. `godot-base/README.md` if it lists games.
-- [ ] Folder `README.md` written properly.
+- [x] Folder `README.md` documents the current prototype and its limitations.
 - [ ] **Exit:** all framework suites + all game suites exit 0 with
       `--game=all`; window suites run without `--headless`.
 

@@ -1,0 +1,195 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://games/sailor_man/ui/scorer_spike.gd" id="1_script"]
+[ext_resource type="Script" path="res://games/sailor_man/ui/voice_ribbon.gd" id="2_ribbon"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_background"]
+bg_color = Color(0.08, 0.13, 0.16, 0.98)
+
+[node name="ScorerSpike" type="PanelContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_background")
+script = ExtResource("1_script")
+
+[node name="Margins" type="MarginContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 18
+
+[node name="Scroll" type="ScrollContainer" parent="Margins"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="Margins/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "SAILOR MAN - VOICE SCORER"
+autowrap_mode = 3
+
+[node name="Disclaimer" type="Label" parent="Margins/Scroll/Content"]
+layout_mode = 2
+text = "Development spike, not a finished game. The marks are a game simplification. Real saloma recordings and cultural review are still pending. Use a comfortable voice, take breaks, and stop if singing is uncomfortable."
+autowrap_mode = 3
+
+[node name="Utility" type="HFlowContainer" parent="Margins/Scroll/Content"]
+layout_mode = 2
+
+[node name="Pause" type="Button" parent="Margins/Scroll/Content/Utility"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Pause / Settings"
+
+[node name="FinishSession" type="Button" parent="Margins/Scroll/Content/Utility"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Finish session"
+
+[node name="OptionsLabel" type="Label" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="DeviceTitle" type="Label" parent="Margins/Scroll/Content"]
+layout_mode = 2
+text = "Microphone (off until you enable it)"
+autowrap_mode = 3
+
+[node name="InputDevice" type="OptionButton" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+tooltip_text = "Choose an input device before enabling capture. Microphone audio is never monitored or saved."
+accessibility_description = "Choose an input device before enabling capture. Microphone audio is never monitored or saved."
+fit_to_longest_item = false
+text_overrun_behavior = 3
+
+[node name="Profile" type="GridContainer" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 8
+columns = 2
+
+[node name="ChestLabel" type="Label" parent="Margins/Scroll/Content/Profile"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Chest centre (Hz)"
+autowrap_mode = 3
+
+[node name="ChestHz" type="SpinBox" parent="Margins/Scroll/Content/Profile"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 44)
+layout_mode = 2
+tooltip_text = "Temporary reference, not a saved calibration. Use a comfortable low pitch between 70 and 550 Hz."
+accessibility_description = "Temporary reference, not a saved calibration. Use a comfortable low pitch between 70 and 550 Hz."
+min_value = 70.0
+max_value = 550.0
+value = 160.0
+
+[node name="CarryLabel" type="Label" parent="Margins/Scroll/Content/Profile"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Carrying level (RMS)"
+autowrap_mode = 3
+
+[node name="CarryLevel" type="SpinBox" parent="Margins/Scroll/Content/Profile"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(110, 44)
+layout_mode = 2
+tooltip_text = "Temporary comfortable input level. Quiet Mode removes this gate; never strain to reach it."
+accessibility_description = "Temporary comfortable input level. Quiet Mode removes this gate; never strain to reach it."
+min_value = 0.005
+max_value = 0.5
+step = 0.005
+value = 0.08
+
+[node name="Actions" type="HFlowContainer" parent="Margins/Scroll/Content"]
+layout_mode = 2
+
+[node name="EnableMicrophone" type="Button" parent="Margins/Scroll/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Enable microphone"
+
+[node name="RecordCall" type="Button" parent="Margins/Scroll/Content/Actions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+disabled = true
+text = "Record call"
+
+[node name="Status" type="Label" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Microphone off. Nothing is recorded until you enable it."
+autowrap_mode = 3
+accessibility_live = 1
+
+[node name="VoiceRibbon" type="Control" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+mouse_filter = 2
+accessibility_description = "Solid line is the current pitch. Dashed line is the reference. Vertical marks show detected breaks; the underline shows the longest breath."
+script = ExtResource("2_ribbon")
+
+[node name="Legend" type="Label" parent="Margins/Scroll/Content"]
+layout_mode = 2
+text = "Solid: current | Dashed: reference | Ticks: breaks | Underline: longest breath"
+autowrap_mode = 3
+
+[node name="Examples" type="HFlowContainer" parent="Margins/Scroll/Content"]
+layout_mode = 2
+
+[node name="ShapedExample" type="Button" parent="Margins/Scroll/Content/Examples"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Synthetic shape"
+
+[node name="FlatExample" type="Button" parent="Margins/Scroll/Content/Examples"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Synthetic flat hold"
+
+[node name="Reference" type="HFlowContainer" parent="Margins/Scroll/Content"]
+layout_mode = 2
+
+[node name="KeepReference" type="Button" parent="Margins/Scroll/Content/Reference"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+disabled = true
+text = "Keep reference"
+
+[node name="ClearReference" type="Button" parent="Margins/Scroll/Content/Reference"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+disabled = true
+text = "Clear reference"
+
+[node name="Marks" type="Label" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No call scored yet. Enable the microphone or load a synthetic example."
+autowrap_mode = 3

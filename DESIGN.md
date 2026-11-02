@@ -10,16 +10,24 @@
 | | |
 | --- | --- |
 | Game ID | `sailor_man` |
-| Title | Sailor Man *(working title — §15)* |
-| Folder | `godot-base/games/sailor_man/` (its own Git repository, intended to become a submodule) |
+| Title | Sailor Man *(confirmed by the owner)* |
+| Folder | `godot-base/games/sailor_man/` (initialized Git submodule) |
 | Control style | `GameManifest.CONTROL_STYLE_CUSTOM_KEYS` |
 | Round rules | Game-owned (`uses_shell_round_rules = false`) |
 | Players | Solo vs CPU crews; two-human hot-seat duel (`max_local_players = 2`) |
-| Menu order | `10` (after Dulce's Adventure's planned `9`) |
+| Menu order | `10` (after Dolce's Adventure's `9`) |
 | Feature tag | `sailor_man` |
 | Input reference | `games/dead_metal_jam/input/` (microphone + pitch detection) |
 | Look-and-feel reference | `games/chicken_pit/` (3D world in a `SubViewport` under the 2D shell) |
 | Renderer | `gl_compatibility` — unchanged |
+
+**Current delivery:** the owner approved scaffolding, tested scoring and an
+opt-in microphone spike first. The source manifest exposes only that solo
+workbench, not the target campaign or multiplayer described below. English-first
+copy keeps Spanish saloma terms; v1 hot seat is two humans, and grito stays
+within Remate. No performer recordings or cultural partner are available yet,
+so Milestone 1's authentic-recording exit remains blocked. See `README.md` for
+what actually runs and `TODO.md` for verified progress.
 
 ---
 
@@ -42,7 +50,7 @@ win each duel by answering their saloma with your own, out loud into a
 microphone or with buttons. Win, and they let you go first. Win through every
 lock and you reach the Pacific and the champion.
 
-The working title is a pun: *salo-**mar*** — *mar* is "sea" — and
+The title is a pun: *salo-**mar*** — *mar* is "sea" — and
 "Sailor Man" sounds close to *salomar* when said aloud.
 
 ### Locked pillars
@@ -246,10 +254,16 @@ from Settings → Game:
 5. **Call** — "Give us one saloma, any way you like." This is not scored. It is
    played back as a ribbon so the player sees what the game hears.
 
-A profile is `{chest_cents_hz, falsetto_low, falsetto_high, noise_floor,
-speak_level, carry_level}`. Profiles are named (default "P1"/"P2") and stored
-in `user://sailor_man_voice.cfg`. That is calibration, so it is deliberately
-**not** a declared `save_files` entry (`AGENTS.md`: saves are progress only).
+The scoring profile is `{chest_hz, falsetto_low, falsetto_high,
+falsetto_calibrated, carry_level}`. `chest_hz` is an absolute frequency;
+falsetto bounds are relative cents. `falsetto_calibrated` distinguishes a
+measured band from the softer fallback rule. The current spike uses temporary
+manual references and stores nothing.
+
+Full calibration will add `noise_floor` and `speak_level`, name profiles
+(default "P1"/"P2") and store them in `user://sailor_man_voice.cfg`. That is
+calibration, so it is deliberately **not** a declared `save_files` entry
+(`AGENTS.md`: saves are progress only).
 
 ### 4.3 Bleed and the speakers
 
@@ -282,7 +296,8 @@ segment). The judges' notes and the results ribbon draw from that evidence.
   an exactly-1200-cent jump lasting ≤ 2 frames is a detector error, not a break.
 - **Altura** — `(p90 − p10) / (falsetto_high − 0)`, clamped to 0–1.
 - **Remate** — the last 400 ms: a falling glide of ≥ 300 cents, or a crisp stop
-  (level falls 20 dB in ≤ 80 ms). A slow fade scores half.
+  (level falls 20 dB in ≤ 80 ms). A slow fade scores half. A glide must be a
+  progressive descent, not one register drop followed by an unfinished hold.
 - **Eco** — both contours are made **relative to each singer's own median**
   and resampled to 64 points. Score with **dynamic time warping** with a
   band of ±12 % *(tune)*. Map the distance to 0–1 with a curve tuned so a
@@ -465,7 +480,7 @@ world/lock_set.gd             # walls, gates, mulas, filling water
 world/scenery.gd              # jungle banks, lake islands, cut terraces, bridges
 world/crowd.gd                # batched spectators on walls and banks
 world/voice_ribbon.gd         # the ribbon drawn over the water as a voice carries
-world/mesh_builder.gd         # copied from chicken_pit/cube_trials, adapted
+world/mesh_builder.gd         # copied from cube_trials/world/, adapted
 ui/duel_hud.gd                # turn banner, listening window, judges' paddles
 ui/soundcheck.gd / .tscn      # calibration overlay, device picker
 ui/remo_ribbon.gd             # the Remo-mode drawing lane
@@ -509,6 +524,9 @@ path, as Cube Trials does. `_round_totals` reports total judges' points.
 Aliento and the input source used.
 
 ### 7.4 Manifest sketch
+
+This is the target manifest. The scorer spike deliberately leaves opponents,
+multiplayer, levels, captains, progress files, store and gallery undeclared.
 
 ```gdscript
 game.id = Options.GAME_ID                       # "sailor_man"
@@ -708,7 +726,7 @@ so and point players toward the real tradition.
 
 Copy is English with Spanish terms kept (*saloma, salomar, quiebre, tanda,
 contrapunto, grito, remate*). A **glossary card** sits in the instructions. A
-full Spanish localisation is strongly recommended for a Panamanian game (§15).
+full Spanish localisation is deferred beyond the approved English-first v1.
 
 ---
 
@@ -736,17 +754,23 @@ Game-tab button row), add data to `GameManifest`, never a game-name branch.
 ## 13. Tests — `tests/`
 
 Headless unless noted; each one is a standalone `SceneTree` script that exits 0.
+Currently implemented: `saloma_scorer_test.gd`, `voice_normalisation_test.gd`,
+`voice_pipeline_test.gd` and the prototype `sailor_scene_test.gd`. The other
+suites below describe later milestones. Run the scene suite without
+`--headless` too: it checks actual phone-to-ultrawide rendering and 150% UI
+size, without requesting microphone access.
 
 | Suite | Covers |
 | --- | --- |
 | `saloma_scorer_test.gd` | Each mark on synthetic tracks: breath saturation, break detection and octave guard, softer rule, range, remate glide vs fade, Eco on identical / shifted / time-stretched / unrelated contours, power gate and Quiet Mode |
 | `voice_normalisation_test.gd` | The same contour sung by a low and a high profile scores within 2 % |
+| `voice_pipeline_test.gd` | MPM on synthesized PCM, sample-rate/buffer independence, streaming normalization, octave guard, source-to-scorer integration and disabled-input failure |
 | `remo_source_test.gd` | Key and touch inputs produce the expected frames; an ideal Remo and an ideal sung performance score within 5 % |
 | `duel_state_test.gd` | Lead alternation, tanda ties to the answerer, best-of-three, decider leader, chamber clock pausing inside windows, retry |
 | `rival_book_test.gd` | Every rival's every take loads, its stored score sits in its difficulty band, and a reachable player score beats each boss |
 | `voyage_test.gd` | Level order, achievement gates, free play after the champion, and that progress never regresses |
 | `voice_calibration_test.gd` | Profiles round-trip, dead-mic silence detection, missing-falsetto fallback |
-| `sailor_scene_test.gd` | Gameplay loads under the shell; HUD binds; pause; results; payout; hot-seat hand-off card |
+| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM through the recording UI, examples/reference, options, pause, results, replay and physical layouts; hot-seat checks follow its implementation |
 | `canal_view_test.gd` *(window)* | Real render: both boats visible in the two-shot, ribbon readable, draw-call budget, portrait → ultrawide, Remo lane doesn't cover the singers |
 
 The framework suites pick the game up automatically. Run them all with
@@ -780,19 +804,19 @@ cruises; more rivals per level; a grito-only quick-fire mode; daily rival.
 
 ---
 
-## 15. Open questions for the owner
+## 15. Owner decisions and open questions
 
-1. **Title.** Keep "Sailor Man" (the *salo-mar* pun), or a Spanish title such as
-   *¡Salomar!* or *La Saloma del Canal*? It fixes `custom_user_dir_name` forever.
-2. **Cultural partner.** Is there a festival, institution or performer we can
-   work with for recordings and review (§11)?
-3. **Spanish localisation** in v1 or later?
+1. **Title — confirmed:** Sailor Man. Its standalone save directory still
+   needs a stable feature-tag entry before shipping.
+2. **Cultural partner — not yet available:** recordings and review (§11),
+   including the real-voice scorer gate, remain blocked.
+3. **Language — confirmed:** English first, keeping Spanish saloma terms.
+   Full Spanish localisation is deferred.
 4. **Gender of the champion title.** "Rey / Reina del Canal" follows the
    captain chosen. Confirm, or pick a neutral title.
-5. **Hot seat beyond two.** Three-player round-robin contrapunto is possible
-   (`max_local_players = 3`). Is it worth it in v1?
-6. **Grito.** Should short gritos be a separate move (for example a quick-fire
-   remate duel), or stay part of Remate?
+5. **Hot seat — confirmed:** two humans in v1, not three. Enable it only once
+   the real duel and per-seat profile hand-off are implemented.
+6. **Grito — confirmed:** part of Remate, with no separate action.
 7. **Real places.** The canal's locks and bridges are named as real places.
    Confirm that the studio is comfortable with that, without any canal
    authority branding.
