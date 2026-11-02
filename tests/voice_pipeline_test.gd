@@ -9,8 +9,15 @@ const Track = preload("res://games/sailor_man/voice/voice_track.gd")
 const Source = preload("res://games/sailor_man/voice/mic_voice_source.gd")
 const Capture = preload("res://games/sailor_man/voice/mic_capture.gd")
 const Scorer = preload("res://games/sailor_man/duel/saloma_scorer.gd")
+const WavSource = preload("res://games/sailor_man/tools/wav_voice_source.gd")
+const TakeAnalysis = preload("res://games/sailor_man/tools/analyse_takes.gd")
 
 var _failures := PackedStringArray()
+var _wav_files := PackedStringArray()
+var _sample_wav := ""
+var _wav_root := "user://sailor_wav_test_%d_%d" % [
+	OS.get_process_id(), Time.get_ticks_usec(),
+]
 
 
 func _initialize() -> void:
@@ -24,6 +31,16 @@ func _run() -> void:
 	_test_track_octaves()
 	_test_microphone_source()
 	_test_dead_input()
+	_test_wav_sources()
+	_test_wav_failures()
+	_test_wav_chunks()
+	_test_take_analysis()
+	_test_take_cli()
+	for path in _wav_files:
+		if FileAccess.file_exists(path):
+			_expect(DirAccess.remove_absolute(path) == OK, "Remove the synthetic WAV fixture.")
+	if DirAccess.dir_exists_absolute(_wav_root):
+		_expect(DirAccess.remove_absolute(_wav_root) == OK, "Remove the empty WAV fixture folder.")
 	if _failures.is_empty():
 		print("Voice pipeline tests passed.")
 	else:
@@ -157,6 +174,275 @@ func _test_dead_input() -> void:
 	capture.free()
 	ProjectSettings.set_setting("audio/driver/enable_input", old_enabled)
 	_expect(AudioServer.bus_count == buses, "A refused capture must not leak an audio bus.")
+
+
+func _test_wav_sources() -> void:
+	var error := DirAccess.make_dir_recursive_absolute(_wav_root)
+	_expect(error == OK, "Create an isolated folder for synthetic WAV fixtures.")
+	if error != OK:
+		return
+	var buses := AudioServer.bus_count
+	var profile := Frame.profile()
+	profile["carry_level"] = 0.5
+	for rate in [44100, 48000, 96000]:
+		for stereo in [false, true]:
+			for width in [1, 2]:
+				var samples := _tone(int(rate * 0.4), float(rate), 160.0)
+				samples.resize(int(rate * 0.5))
+				var fixture := _write_wav(
+					"tone %d %s %d" % [rate, str(stereo), width], rate, stereo, width, samples
+				)
+				if fixture.is_empty():
+					continue
+				var path := str(fixture["path"])
+				var before := FileAccess.get_file_as_bytes(path)
+				var loaded := WavSource.read(path, profile, 0.001)
+				_expect(bool(loaded["valid"]), "Load the synthetic WAV: %s." % path)
+				if not bool(loaded["valid"]):
+					continue
+				if _sample_wav.is_empty():
+					_sample_wav = path
+				var direct := Source.new()
+				direct.begin(float(rate), profile, 0.001)
+				var expected := direct.push_frames(fixture["pcm"])
+				expected.append_array(direct.finish())
+				var actual: Array[Dictionary] = loaded["track"]
+				var matching := actual.size() == expected.size()
+				var cents_error := 0.0
+				var level_error := 0.0
+				for index in mini(actual.size(), expected.size()):
+					matching = (
+						matching and actual[index]["voiced"] == expected[index]["voiced"]
+						and is_equal_approx(float(actual[index]["t"]), float(expected[index]["t"]))
+					)
+					cents_error = maxf(cents_error, absf(
+						float(actual[index]["cents"]) - float(expected[index]["cents"])
+					))
+					level_error = maxf(level_error, absf(
+						float(actual[index]["level"]) - float(expected[index]["level"])
+					))
+				_expect(
+					matching and cents_error < 0.2 and level_error < 0.002,
+					"WAV decoding must match captured PCM at %d Hz, stereo=%s, width=%d."
+					% [rate, str(stereo), width]
+				)
+				_expect(
+					int(loaded["sample_rate"]) == rate
+					and int(loaded["channels"]) == (2 if stereo else 1)
+					and is_equal_approx(float(loaded["duration_seconds"]), 0.5)
+					and Frame.track_error(actual).is_empty()
+					and FileAccess.get_file_as_bytes(path) == before,
+					"Offline analysis must preserve rate, channels, silence and the input file."
+				)
+	_expect(AudioServer.bus_count == buses, "Recorded input must not create a capture bus.")
+
+
+func _test_wav_failures() -> void:
+	for path in [
+		_wav_root.path_join("missing.wav"),
+		_write_bytes("not_audio.wav", "not a WAV recording".to_ascii_buffer()),
+	]:
+		_expect(not bool(WavSource.read(path, Frame.profile())["valid"]), "Reject non-WAV input.")
+	var truncated := "RIFF".to_ascii_buffer()
+	truncated.resize(8)
+	truncated.encode_u32(4, 200)
+	truncated.append_array("WAVE".to_ascii_buffer())
+	var path := _write_bytes("truncated.wav", truncated)
+	_expect(
+		not bool(WavSource.read(path, Frame.profile())["valid"]),
+		"A truncated recording must not become a plausible score."
+	)
+	for rate in [8000, 44100]:
+		var short := _write_wav(
+			"unusable %d" % rate, rate, false, 2, _tone(40, float(rate), 160.0)
+		)
+		if not short.is_empty():
+			_expect(
+				not bool(WavSource.read(str(short["path"]), Frame.profile())["valid"]),
+				"Unsupported rates and unanalyzable short WAVs must fail before scoring."
+			)
+	var silence := PackedFloat32Array()
+	silence.resize(8820)
+	var quiet := _write_wav("silence", 44100, false, 2, silence)
+	if not quiet.is_empty():
+		var loaded := WavSource.read(str(quiet["path"]), Frame.profile())
+		_expect(bool(loaded["valid"]), "Recorded silence is not missing PCM.")
+		if bool(loaded["valid"]):
+			var score := Scorer.score(loaded["track"], Frame.profile())
+			_expect(
+				int(loaded["voiced_frames"]) == 0 and is_zero_approx(float(score["total"])),
+				"An actual silent WAV must remain a valid zero-score take."
+			)
+
+
+func _test_take_analysis() -> void:
+	if _sample_wav.is_empty():
+		return
+	for arguments in [
+		[], ["--noise-floor=banana", _sample_wav], ["--sensitivity=0", _sample_wav],
+		["--falsetto-low=1400", _sample_wav], ["--unknown=1", _sample_wav],
+	]:
+		_expect(
+			not bool(TakeAnalysis.parse_arguments(PackedStringArray(arguments))["valid"]),
+			"Malformed analysis arguments must fail instead of adopting silent defaults."
+		)
+	var options := TakeAnalysis.parse_arguments(PackedStringArray([
+		"--quiet-mode", "--carry-level=0.5", "--noise-floor=0.001",
+		"--reference=%s" % _sample_wav, _sample_wav,
+	]))
+	var report := TakeAnalysis.analyse(options)
+	var take: Dictionary = report["takes"][0]
+	_expect(
+		bool(report["valid"]) and bool(take["score"]["answering"])
+		and float(take["score"]["marks"]["eco"]) > 0.99
+		and not bool(take["score"]["power_gated"])
+		and not take.has("track") and not report.has("profile"),
+		"Offline answers must earn Eco without putting full tracks/profiles in the report."
+	)
+	var normal := options.duplicate(true)
+	normal["quiet_mode"] = false
+	var gated := TakeAnalysis.analyse(normal)
+	_expect(
+		bool(gated["takes"][0]["score"]["power_gated"])
+		and float(gated["takes"][0]["score"]["total"]) < float(take["score"]["total"]),
+		"Offline Quiet Mode must bypass the same carrying-level gate as live scoring."
+	)
+	options["files"] = PackedStringArray([
+		_sample_wav, _wav_root.path_join("missing_take.wav"),
+	])
+	report = TakeAnalysis.analyse(options)
+	_expect(
+		not bool(report["valid"]) and (report["takes"] as Array).size() == 2
+		and bool(report["takes"][0]["valid"]) and not bool(report["takes"][1]["valid"]),
+		"A missing take must be reported without hiding the successful take or overall failure."
+	)
+	options["reference"] = _wav_root.path_join("missing_reference.wav")
+	report = TakeAnalysis.analyse(options)
+	_expect(
+		not bool(report["valid"]) and (report["takes"] as Array).is_empty()
+		and str(report["error"]).contains("Reference"),
+		"A missing reference must fail, never silently score answers as calls."
+	)
+
+
+func _test_wav_chunks() -> void:
+	var fixture := _write_wav("chunk layout", 44100, true, 2, _tone(17640, 44100.0, 160.0))
+	if fixture.is_empty():
+		return
+	var original := FileAccess.get_file_as_bytes(str(fixture["path"]))
+	var oversized := original.duplicate()
+	oversized.encode_u32(40, original.decode_u32(40) + 4)
+	var partial := original.duplicate()
+	partial.append_array(PackedByteArray([1, 0]))
+	partial.encode_u32(4, partial.size() - 8)
+	partial.encode_u32(40, original.decode_u32(40) + 1)
+	var invalid_rate := original.duplicate()
+	invalid_rate.encode_u32(24, 0)
+	for bytes in [oversized, partial, invalid_rate]:
+		var path := _write_bytes("damaged %d.wav" % _wav_files.size(), bytes)
+		_expect(
+			not bool(WavSource.read(path, Frame.profile())["valid"]),
+			"Decoder recovery must not turn broken chunk sizes, frames or rates into valid takes."
+		)
+	var metadata := "JUNK".to_ascii_buffer()
+	metadata.resize(8)
+	metadata.encode_u32(4, 3)
+	metadata.append_array(PackedByteArray([1, 2, 3, 0]))
+	var tagged := original.slice(0, 12)
+	tagged.append_array(metadata)
+	tagged.append_array(original.slice(12))
+	tagged.encode_u32(4, tagged.size() - 8)
+	var path := _write_bytes("padded metadata.wav", tagged)
+	var loaded := WavSource.read(path, Frame.profile())
+	_expect(
+		bool(loaded["valid"]) and is_equal_approx(float(loaded["duration_seconds"]), 0.4),
+		"A valid odd-sized metadata chunk with RIFF padding must preserve the recording."
+	)
+
+
+func _test_take_cli() -> void:
+	if _sample_wav.is_empty():
+		return
+	var base := PackedStringArray([
+		"--headless", "--audio-driver", "Dummy", "--no-header",
+		"--path", ProjectSettings.globalize_path("res://"),
+		"--script", "res://games/sailor_man/tools/analyse_takes.gd", "--", "--game=sailor_man",
+	])
+	var path := ProjectSettings.globalize_path(_sample_wav)
+	for missing in [false, true]:
+		var arguments := base.duplicate()
+		arguments.append("--reference=%s" % path)
+		arguments.append(path if not missing else path + ".missing")
+		var output: Array = []
+		var code := OS.execute(OS.get_executable_path(), arguments, output, true)
+		var report: Dictionary = {}
+		for chunk: String in output:
+			for line: String in chunk.split("\n"):
+				if line.begins_with("{"):
+					var json := JSON.new()
+					var error := json.parse(line)
+					_expect(error == OK, "The analysis command must emit valid JSON.")
+					if error == OK and json.data is Dictionary:
+						report = json.data
+		_expect(
+			code == (2 if missing else 0) and not report.is_empty()
+			and bool(report.get("valid", missing)) == (not missing),
+			"The real analysis command must score spaced paths and return a failing exit for bad input."
+		)
+		var takes: Array = report.get("takes", [])
+		_expect(takes.size() == 1, "The command must report the take, not just a success flag.")
+		if takes.size() == 1 and not missing:
+			_expect(
+				bool(takes[0]["score"]["answering"])
+				and float(takes[0]["score"]["marks"]["eco"]) > 0.99,
+				"The command's reference argument must reach the real PCM/Eco path."
+			)
+
+
+func _write_wav(
+	name: String, rate: int, stereo: bool, width: int, samples: PackedFloat32Array
+) -> Dictionary:
+	var channels := 2 if stereo else 1
+	var data := PackedByteArray()
+	data.resize(samples.size() * channels * width)
+	var pcm := PackedVector2Array()
+	pcm.resize(samples.size())
+	var divisor := 128.0 if width == 1 else 32768.0
+	for index in samples.size():
+		var frame := Vector2.ZERO
+		for channel in channels:
+			var sample := float(samples[index]) * (0.5 if channel == 1 else 1.0)
+			var quantized := roundi(sample * divisor)
+			var offset := (index * channels + channel) * width
+			if width == 1:
+				data.encode_s8(offset, quantized)
+			else:
+				data.encode_s16(offset, quantized)
+			frame[channel] = float(quantized) / divisor
+		if not stereo:
+			frame.y = frame.x
+		pcm[index] = frame
+	var stream := AudioStreamWAV.new()
+	stream.mix_rate = rate
+	stream.stereo = stereo
+	stream.format = AudioStreamWAV.FORMAT_8_BITS if width == 1 else AudioStreamWAV.FORMAT_16_BITS
+	stream.data = data
+	var path := _wav_root.path_join(name + ".wav")
+	_wav_files.append(path)
+	var error := stream.save_to_wav(path)
+	_expect(error == OK, "Write the synthetic WAV fixture.")
+	return {"path": path, "pcm": pcm} if error == OK else {}
+
+
+func _write_bytes(name: String, bytes: PackedByteArray) -> String:
+	var path := _wav_root.path_join(name)
+	_wav_files.append(path)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	_expect(file != null, "Write the malformed WAV fixture.")
+	if file != null:
+		file.store_buffer(bytes)
+		file.close()
+	return path
 
 
 func _tracked_jump(cents: float, length: int) -> Array[Dictionary]:

@@ -15,6 +15,9 @@ experiment. Do not advertise a playable voyage, opponents or Remo controls.
   recording comparison in DESIGN Milestone 1 must pass before later gameplay.
 - The SVG icon and walkthrough are prototype presentation assets required by
   the framework's catalog-wide tests, not finished game art.
+- `tools/analyse_takes.gd` is read-only WAV analysis for the recording gate,
+  not the later rival-track baking pipeline. Its provisional reports cannot
+  certify authentic salomas, performer consent or cultural review.
 
 ## Model contracts
 
@@ -57,6 +60,22 @@ experiment. Do not advertise a playable voyage, opponents or Remo controls.
 - Preserve `GameShell` pause/results/replay and call `super(value)` in both
   accessibility overrides. Keep `gl_compatibility`.
 
+## Offline recordings
+
+- Keep WAV loading/CLI code under `tools/`, already excluded from exports.
+  Feed its PCM through `MicVoiceSource`; do not add a second pitch/scoring path.
+- Explicitly disable the WAV loader's default QOA compression, normalization,
+  trimming and rate reduction. Preserve input gain/silence and live stereo
+  downmixing. Validate RIFF chunk bounds, padding, frame alignment and the
+  detector's sample-rate floor before decoding; Godot may recover malformed
+  data and still return a playable stream.
+- Never copy performer recordings into the repository or emit PCM, complete
+  tracks or profiles in reports. An invalid reference fails the job rather
+  than falling back to call scoring; report failed takes and a nonzero exit.
+- Automated file fixtures are synthesized, live only in isolated test data
+  and are removed after the suite. Run the CLI with `--audio-driver Dummy`;
+  use `--no-header` for clean JSON, not the stdout-silencing `--quiet`.
+
 ## Validation
 
 Run from `godot-base/` with Godot 4.7:
@@ -76,7 +95,9 @@ for integration runs. On Windows, use the console executable or
 `Start-Process -Wait -PassThru` and check `ExitCode`; a direct GUI-executable
 invocation can return before the suite finishes. The buffered microphone
 fixture exercises PCM through the real UI/source/scorer without opening
-hardware; it does not verify OS
-permissions, device quality or real singers. Run all 15 framework suites with
+hardware. The pipeline suite also checks synthetic WAV/direct-PCM parity,
+read-only inputs, invalid recordings, reference/Quiet Mode handling and actual
+offline command exit codes/JSON. Neither verifies OS permissions, device
+quality or real singers. Run all 15 framework suites with
 `--game=all` after integration changes. Keep `README.md` and `TODO.md` honest
 about those limits.

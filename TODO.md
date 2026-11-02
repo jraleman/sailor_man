@@ -99,6 +99,10 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
       listening-window stalls disconnect capture, partial turns cannot replace
       scored references, and pause preserves the earlier reference. Regression
       cases also cover resumed buffers and actual captured silence.
+- [x] Offline WAV analysis: read-only local takes through the microphone's
+      detector/normalizer and shared scorer, optional reference-based Eco,
+      explicit errors/exit codes, and synthetic file/CLI regressions. This
+      prepares recording comparisons; it does not pass the exit below.
 - [ ] **Exit:** a real saloma and a flat yell score clearly differently on the
       spike, checked against real salomero recordings (blocked on §15.2).
       Record the numbers here before moving on.
@@ -131,6 +135,15 @@ exited 0, with the same shutdown-resource warnings and expected bad-backup
 errors noted above. This follow-up explicitly used the Dummy audio driver;
 no physical microphone was opened. The walkthrough's synthetic-only flow is
 unchanged.
+
+**Offline WAV follow-up:** all four Sailor Man headless suites passed; the
+affected pipeline/CLI regressions passed again after adding strict RIFF chunk
+and PCM frame validation. The file matrix covers mono/stereo 8-/16-bit inputs
+at 44.1/48/96 kHz. Actual commands verified provisional comparison/Eco reports,
+unchanged input hashes and failure exits for missing takes/references, bad
+arguments and damaged recordings. Valid padded metadata remains accepted.
+All runs used Dummy audio and isolated profiles, with no engine/script errors
+in the final checks. This is still synthetic evidence, not the real-voice exit.
 
 ## Milestone 2 — Remo mode (§4.5)
 

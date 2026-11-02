@@ -57,6 +57,68 @@ tracks or voice profiles are saved; only declared options/bindings use the
 host's normal settings persistence. Source launches use the host development
 user directory. A dedicated standalone export is not configured.
 
+## Offline recording comparison
+
+`tools/analyse_takes.gd` reads local WAVs through the **same PCM detector,
+normalizer and scorer** as live capture, without opening a microphone or
+playing audio. Keep consented source recordings outside the repository and
+exports. Prepare a short file for each call; the entire file is one window.
+
+From `godot-base/`, compare two calls without the carrying-level gate:
+
+```powershell
+godot --headless --audio-driver Dummy --no-header --path . `
+  --script res://games/sailor_man/tools/analyse_takes.gd -- `
+  --game=sailor_man --quiet-mode `
+  "C:\VoiceChecks\saloma.wav" "C:\VoiceChecks\flat_hold.wav"
+```
+
+For Eco, supply a reference WAV and the answer:
+
+```powershell
+godot --headless --audio-driver Dummy --no-header --path . `
+  --script res://games/sailor_man/tools/analyse_takes.gd -- `
+  --game=sailor_man --reference="C:\VoiceChecks\call.wav" `
+  --chest-hz=160 --carry-level=0.08 --noise-floor=0.004 `
+  "C:\VoiceChecks\answer.wav"
+```
+
+Those numeric defaults are **unmeasured references**, not calibration. Use
+values from the recording session. `--falsetto-low` / `--falsetto-high` are
+cents relative to chest, and `--measured-falsetto` is only for a genuinely
+measured band. `--sensitivity` is a positive linear gain; `--quiet-mode`
+bypasses the power gate, not the detector's noise threshold. `--help` lists
+every option. Use `--no-header`, not Godot's `--quiet`, which silences JSON
+output; the game's `--quiet-mode` goes after the `--` separator.
+One invocation uses one profile/noise floor for every take and reference;
+use separate invocations when recording sessions need different references.
+
+Mono/stereo 8-/16-bit PCM WAVs at 44.1, 48 and 96 kHz are regression-tested.
+The loader preserves rate, gain, channels and surrounding silence, explicitly
+disabling Godot's default lossy QOA conversion, normalization, trimming and
+rate reduction. Stereo is averaged exactly as live capture does. Sample rates
+at or below 8800 Hz are rejected because the shared detector cannot cover its
+full pitch range there. Other uncompressed PCM/IEEE-float encodings depend on
+Godot's decoder; higher-bit-depth input may be converted to 16-bit PCM for analysis.
+Container/chunk bounds, padding and PCM frame alignment are validated before
+decoding, rather than silently accepting Godot's damaged-file recovery.
+
+The JSON report contains provisional scores/evidence, input metadata and a
+`score_out_of_100`; raw totals/marks stay in 0-1. It never includes PCM, full
+tracks or voice profiles. Inputs are read-only and no track/profile files are
+created, although normal Godot logs may contain the printed report.
+`frame_count` and `voiced_frames` count normalized 100 Hz voice frames,
+not the WAV's PCM sample frames.
+Exit **0** means every take scored; **2** means invalid arguments or at least
+one failed input. A bad take remains listed alongside successful ones. An
+unreadable reference aborts the comparison instead of silently turning answers
+into calls.
+
+`valid` means technically analyzable, **not culturally validated**. Synthetic
+WAV tests do not satisfy the real-saloma gate. Keep the chosen command,
+recording/session references and reviewer notes with any eventual comparison;
+record approved real-voice numbers in `TODO.md` only after that review.
+
 ## Validation and limits
 
 Four suites cover the pure scorer, low/high-register equivalence, synthesized
@@ -76,6 +138,12 @@ microphone. Buffered-PCM regressions distinguish absent data from actual
 silence, check stall recovery and resumed buffers, and verify that pause/error
 paths cannot score or retain unfinished calls. The microphone core was adapted
 from DeskCanSaw's Dead Metal Jam; Sailor Man has no runtime dependency on it.
+
+The pipeline suite also writes temporary, explicitly synthetic WAV fixtures
+in its isolated user profile and removes them afterward. It checks all
+mono/stereo and 8-/16-bit combinations at 44.1/48/96 kHz against direct PCM,
+preserved silence/gain, rejected input, Quiet Mode/Eco, and actual command-line
+JSON and exit codes, including file paths with spaces.
 
 For physical-device QA, explicitly enable a microphone and check the room
 measurement, a comfortable call, Quiet Mode and Stop. Then test unavailable
