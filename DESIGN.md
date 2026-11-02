@@ -21,12 +21,14 @@
 | Look-and-feel reference | `games/chicken_pit/` (3D world in a `SubViewport` under the 2D shell) |
 | Renderer | `gl_compatibility` — unchanged |
 
-**Current delivery:** the owner approved scaffolding, tested scoring and an
-opt-in microphone spike first. The source manifest exposes only that solo
+**Current delivery:** scaffolding, tested scoring, an opt-in microphone spike
+and Remo practice. The source manifest exposes only that solo
 workbench, not the target campaign or multiplayer described below. English-first
 copy keeps Spanish saloma terms; v1 hot seat is two humans, and grito stays
 within Remate. No performer recordings or cultural partner are available yet,
-so Milestone 1's authentic-recording exit remains blocked. See `README.md` for
+so Milestone 1's authentic-recording exit remains unverified. The owner
+authorized continuing with Remo under the assumption that validation works,
+not as a claim that recordings or review were completed. See `README.md` for
 what actually runs and `TODO.md` for verified progress.
 
 ---
@@ -338,6 +340,15 @@ of 700 cents over 40 ms. The pitch stick glides at 1800 cents/s *(tune)*. While
 Voice is held, the player hears their **captain's recorded voice** pitch-
 shifted along the track. These are real takes, so a button saloma still
 sounds like a saloma.
+
+**Current workbench:** key/gamepad and independent touch sources now feed the
+same scorer and reference ribbon, with rebindable keyboard hints. Start Remo
+or hold the ribbon; Remo disconnects microphone capture and uses a clearly
+labelled, original synthetic tone on the SFX bus. Real captain recordings
+remain Milestone 6. Explicit Remate leaves 120 ms of silent frames before
+judging, while Stop/timeout do not fabricate an ending. Pause, focus loss and
+rebinding cancel unfinished turns without losing a kept reference.
+The virtual band is authored/known, not a measured microphone calibration.
 
 Because the same scorer judges it, Remo mode cannot be strictly easier or
 harder by accident. The tests pin that an ideal Remo performance and an ideal
@@ -769,7 +780,8 @@ Game-tab button row), add data to `GameManifest`, never a game-name branch.
 
 Headless unless noted; each one is a standalone `SceneTree` script that exits 0.
 Currently implemented: `saloma_scorer_test.gd`, `voice_normalisation_test.gd`,
-`voice_pipeline_test.gd` and the prototype `sailor_scene_test.gd`. The other
+`voice_pipeline_test.gd`, `remo_source_test.gd` and the prototype
+`sailor_scene_test.gd`. The other
 suites below describe later milestones. Run the scene suite without
 `--headless` too: it checks actual phone-to-ultrawide rendering and 150% UI
 size, without requesting microphone access.
@@ -784,7 +796,7 @@ size, without requesting microphone access.
 | `rival_book_test.gd` | Every rival's every take loads, its stored score sits in its difficulty band, and a reachable player score beats each boss |
 | `voyage_test.gd` | Level order, achievement gates, free play after the champion, and that progress never regresses |
 | `voice_calibration_test.gd` | Profiles round-trip, dead-mic silence detection, missing-falsetto fallback |
-| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM through the recording UI, examples/reference, options, pause, results, replay and physical layouts; hot-seat checks follow its implementation |
+| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; hot-seat checks follow its implementation |
 | `canal_view_test.gd` *(window)* | Real render: both boats visible in the two-shot, ribbon readable, draw-call budget, portrait → ultrawide, Remo lane doesn't cover the singers |
 
 The framework suites pick the game up automatically. Run them all with
@@ -797,8 +809,9 @@ The framework suites pick the game up automatically. Run them all with
 1. **Scorer spike.** `saloma_scorer.gd` and the synthetic-track tests, plus a
    bare scene that records a mic turn and prints the five marks. *Goal: a real
    saloma and a flat yell score clearly differently.* This is the riskiest part
-   of the game; prove it with real salomeros' recordings before building
-   anything else.
+   of the game; real salomeros' recordings remain the validation gate. The
+   owner authorized Milestone 2 under an assumption of success, not as evidence
+   that the gate was passed.
 2. **Remo mode.** Key/touch sources and the ribbon lane; parity test green.
 3. **Duel.** State machine, judges, one placeholder rival and HUD, results,
    all in a grey-box lock.

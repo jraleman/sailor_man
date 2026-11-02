@@ -1,18 +1,20 @@
 # Sailor Man
 
 Read the root `AGENTS.md`, then `DESIGN.md` and `TODO.md`. The design describes
-the target game; the current implementation is only its scorer/microphone
-experiment. Do not advertise a playable voyage, opponents or Remo controls.
+the target game; the current implementation is its microphone/Remo scorer
+workbench. Do not advertise a playable voyage or opponents.
 
 ## Current scope
 
 - The owner confirmed **Sailor Man**, English-first copy with Spanish saloma
   terms, two-human hot seat in v1, and grito as part of Remate.
-- The manifest currently enables solo only. Campaign, rivals, Remo, saved
+- The manifest currently enables solo only. Campaign, rivals, saved
   calibration, hot seat, store and gallery are not implemented.
 - No performer recordings or cultural partner are available yet. Synthetic
   fixtures prove algorithm behavior, not authentic saloma quality. The real
-  recording comparison in DESIGN Milestone 1 must pass before later gameplay.
+  recording comparison in DESIGN Milestone 1 remains unverified. The owner
+  explicitly authorized Remo development assuming that validation works;
+  that is not evidence to check off the authentic-recording gate.
 - The SVG icon and walkthrough are prototype presentation assets required by
   the framework's catalog-wide tests, not finished game art.
 - `tools/analyse_takes.gd` is read-only WAV analysis for the recording gate,
@@ -27,9 +29,14 @@ experiment. Do not advertise a playable voyage, opponents or Remo controls.
 - The scoring profile is `{chest_hz, falsetto_low, falsetto_high,
   falsetto_calibrated, carry_level}`. Falsetto bounds are relative cents.
   Never treat the temporary default band as a measured calibration.
-- `voice/voice_track.gd`, `voice/mic_voice_source.gd` and
-  `duel/saloma_scorer.gd` are node-free and autoload-free. Keep future Remo
-  and authored tracks on this same path.
+- `voice/voice_track.gd`, `voice/mic_voice_source.gd`,
+  `voice/key_voice_source.gd`, `voice/touch_voice_source.gd` and
+  `duel/saloma_scorer.gd` are node-free and autoload-free. Remo uses explicit
+  events, never hardware polling. Touch inherits the key source's 100 Hz clock,
+  pitch speed and register transitions; keep authored tracks on this same path.
+- Remo's authored 700-1300-cent band uses the calibrated-band scoring rule;
+  that must never mark a human microphone profile as measured. Explicit
+  Remate retains 120 ms of unvoiced frames; a timeout must not invent a finish.
 - The scorer returns `valid`, marks, total and evidence; invalid input has
   an explicit error. Do not turn malformed tracks into plausible zero scores.
 - Keep thresholds at the top of the scorer. Preserve sustained register
@@ -50,6 +57,13 @@ experiment. Do not advertise a playable voyage, opponents or Remo controls.
   identify it by its unique name, not a stale bus index.
 - Keep errors visible and the explicitly synthetic examples usable when a
   microphone is absent, disabled or denied. Extra amplitude earns no points.
+- Starting Remo disconnects capture. Its neutral synthetic preview is on the
+  SFX bus, labelled as a tone, not an authentic or recorded captain voice.
+  Stop it on finish, cancellation, pause, focus loss and source changes.
+- Preserve independent ribbon/Break touch ownership and ignore emulated mouse
+  twins. Hit testing must respect ancestor clipping in the scroll container.
+  Keyboard/pad gameplay input takes precedence over GUI activation only inside
+  Remo; leave the shell's pause action alone and respect live key rebinding.
 - Missing/unanalyzable PCM is a recording failure, not a zero-score call.
   Actual captured silence may score zero. Four seconds without buffers during
   a call aborts capture; cancelled tracks cannot become references, and a
@@ -85,6 +99,7 @@ godot --headless --path . --import
 godot --headless --path . --script res://games/sailor_man/tests/saloma_scorer_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_normalisation_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_pipeline_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/remo_source_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 ```
@@ -97,7 +112,11 @@ invocation can return before the suite finishes. The buffered microphone
 fixture exercises PCM through the real UI/source/scorer without opening
 hardware. The pipeline suite also checks synthetic WAV/direct-PCM parity,
 read-only inputs, invalid recordings, reference/Quiet Mode handling and actual
-offline command exit codes/JSON. Neither verifies OS permissions, device
-quality or real singers. Run all 15 framework suites with
-`--game=all` after integration changes. Keep `README.md` and `TODO.md` honest
-about those limits.
+offline command exit codes/JSON. Remo's scene checks route simulated key/pad/
+multitouch events through the actual viewport, including pause/resume. Pin a
+usable window size and UI scale before coordinate-based input checks, even
+headlessly, and resume the real pause menu rather than only freeing it.
+These do not verify physical devices, OS permissions, acoustic output or real
+singers. Use `--audio-driver Dummy` for automated runs. Run all 15 framework
+suites with `--game=all` after integration changes. Keep `README.md` and
+`TODO.md` honest about those limits.

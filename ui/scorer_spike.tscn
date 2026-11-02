@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://games/sailor_man/ui/scorer_spike.gd" id="1_script"]
-[ext_resource type="Script" path="res://games/sailor_man/ui/voice_ribbon.gd" id="2_ribbon"]
+[ext_resource type="Script" path="res://games/sailor_man/ui/remo_ribbon.gd" id="2_ribbon"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_background"]
 bg_color = Color(0.08, 0.13, 0.16, 0.98)
@@ -38,7 +38,7 @@ theme_override_constants/separation = 12
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "SAILOR MAN - VOICE SCORER"
+text = "SAILOR MAN - VOICE / REMO SCORER"
 autowrap_mode = 3
 
 [node name="Disclaimer" type="Label" parent="Margins/Scroll/Content"]
@@ -139,16 +139,56 @@ text = "Record call"
 [node name="Status" type="Label" parent="Margins/Scroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Microphone off. Nothing is recorded until you enable it."
+text = "Microphone off. Start a Remo call or hold the ribbon; no microphone needed."
 autowrap_mode = 3
 accessibility_live = 1
+
+[node name="RemoTitle" type="Label" parent="Margins/Scroll/Content"]
+layout_mode = 2
+text = "Remo - buttons, gamepad or touch"
+autowrap_mode = 3
+
+[node name="RemoHelp" type="Label" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="RemoActions" type="HFlowContainer" parent="Margins/Scroll/Content"]
+layout_mode = 2
+
+[node name="StartRemo" type="Button" parent="Margins/Scroll/Content/RemoActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Start Remo call"
+tooltip_text = "Opens a button/touch listening window and disconnects the microphone."
+
+[node name="RemoBreak" type="Button" parent="Margins/Scroll/Content/RemoActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+disabled = true
+text = "Break"
+accessibility_name = "Remo Quiebre"
+tooltip_text = "Switch registers while holding Voice or the ribbon."
+
+[node name="RemoFinish" type="Button" parent="Margins/Scroll/Content/RemoActions"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+disabled = true
+text = "Remate"
+accessibility_name = "Finish Remo call"
+tooltip_text = "Release the virtual voice and score this call."
 
 [node name="VoiceRibbon" type="Control" parent="Margins/Scroll/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
-mouse_filter = 2
-accessibility_description = "Solid line is the current pitch. Dashed line is the reference. Vertical marks show detected breaks; the underline shows the longest breath."
+focus_mode = 2
+mouse_default_cursor_shape = 2
+accessibility_name = "Remo pitch ribbon"
+accessibility_description = "Hold and drag to voice with buttons or touch, without a microphone. Solid line is your pitch; dashed line is the reference. Flick up for Quiebre, down for Remate. Vertical ticks show breaks; the underline shows the longest breath."
 script = ExtResource("2_ribbon")
 
 [node name="Legend" type="Label" parent="Margins/Scroll/Content"]
@@ -191,5 +231,5 @@ text = "Clear reference"
 [node name="Marks" type="Label" parent="Margins/Scroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "No call scored yet. Enable the microphone or load a synthetic example."
+text = "No call scored yet. Try Remo, enable a microphone or load an example."
 autowrap_mode = 3

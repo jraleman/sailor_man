@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Only implemented spike controls are advertised. Remo, rivals, campaign,
+## Only implemented workbench controls are advertised. Rivals, campaign,
 ## captains and cosmetics acquire their declarations with their milestones.
 
 const GAME_ID := "sailor_man"
@@ -9,6 +9,19 @@ const LONG_WINDOWS_KEY := "game/sailor_man_long_windows"
 const MIC_SENSITIVITY_KEY := "game/sailor_man_mic_sensitivity"
 const RECORD_KEY := "controls/sailor_man_spike_record"
 const RECORD_ACTION := &"sailor_man_spike_record"
+const VOICE_KEY := "controls/sailor_man_voice"
+const PITCH_UP_KEY := "controls/sailor_man_pitch_up"
+const PITCH_DOWN_KEY := "controls/sailor_man_pitch_down"
+const QUIEBRE_KEY := "controls/sailor_man_quiebre"
+const REMATE_KEY := "controls/sailor_man_remate"
+const VOICE_ACTION := &"sailor_man_voice"
+const PITCH_UP_ACTION := &"sailor_man_pitch_up"
+const PITCH_DOWN_ACTION := &"sailor_man_pitch_down"
+const QUIEBRE_ACTION := &"sailor_man_quiebre"
+const REMATE_ACTION := &"sailor_man_remate"
+const REMO_ACTIONS: Array[StringName] = [
+	VOICE_ACTION, PITCH_UP_ACTION, PITCH_DOWN_ACTION, QUIEBRE_ACTION, REMATE_ACTION,
+]
 
 const TUNABLES: Array[Dictionary] = [
 	{
@@ -48,5 +61,45 @@ const CONTROL_BINDINGS: Array[Dictionary] = [
 		"title": "Start / stop a test call",
 		"description": "Records only after you explicitly enable and check the microphone.",
 		"heading": "Voice scorer prototype",
+	},
+	{
+		"key": VOICE_KEY,
+		"action": VOICE_ACTION,
+		"default": KEY_SPACE,
+		"title": "Voice",
+		"description": "Hold to voice during a Remo call. Release for a breath.",
+		"heading": "Remo controls",
+	},
+	{
+		"key": PITCH_UP_KEY,
+		"action": PITCH_UP_ACTION,
+		"default": KEY_W,
+		"title": "Pitch up",
+		"description": "Glide upward while held. The up arrow is a fixed extra.",
+		"heading": "Remo controls",
+	},
+	{
+		"key": PITCH_DOWN_KEY,
+		"action": PITCH_DOWN_ACTION,
+		"default": KEY_S,
+		"title": "Pitch down",
+		"description": "Glide downward while held. The down arrow is a fixed extra.",
+		"heading": "Remo controls",
+	},
+	{
+		"key": QUIEBRE_KEY,
+		"action": QUIEBRE_ACTION,
+		"default": KEY_J,
+		"title": "Quiebre / Break",
+		"description": "Press to switch registers during a voiced Remo call.",
+		"heading": "Remo controls",
+	},
+	{
+		"key": REMATE_KEY,
+		"action": REMATE_ACTION,
+		"default": KEY_K,
+		"title": "Remate / Finish",
+		"description": "Release the virtual voice and score the Remo call.",
+		"heading": "Remo controls",
 	},
 ]

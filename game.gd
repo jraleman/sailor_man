@@ -10,7 +10,7 @@ static func manifest() -> GameManifest:
 	var game := GameManifest.new()
 	game.id = Options.GAME_ID
 	game.title = "Sailor Man"
-	game.tagline = "Voice scorer prototype - the voyage is still in development."
+	game.tagline = "Voice / Remo scorer prototype - the voyage is still in development."
 	game.menu_order = 10
 	game.gameplay_scene_path = "res://games/sailor_man/gameplay.tscn"
 	game.control_style = GameManifest.CONTROL_STYLE_CUSTOM_KEYS
@@ -25,17 +25,23 @@ static func manifest() -> GameManifest:
 	game.copy = {
 		"instructions_headline": "Try the shared saloma scorer",
 		"instructions_rules": (
-			"Development prototype, not a duel. Enable the microphone, stay quiet "
-			+ "for the room check, then record a comfortable call. No extra points "
-			+ "for volume. Labelled synthetic examples work without a microphone."
+			"Development prototype, not a duel. Start a Remo call and draw with "
+			+ "buttons or touch, without a microphone. Or explicitly enable a mic, "
+			+ "finish the room check and record a comfortable call. Extra volume "
+			+ "earns nothing. Remo previews use a labelled synthetic tone."
 		),
 		"instructions_solo_summary": (
 			"Compare Aliento, Quiebre, Altura and Remate. Keep a call as a "
 			+ "reference to test Eco on your next answer. These marks are a game "
 			+ "simplification; authentic-voice validation is still pending."
 		),
-		"instructions_player_one_controls": "Start or stop a microphone test call.",
-		"player_one_control_description": "Start or stop a microphone test call.",
+		"instructions_player_one_controls": (
+			"Start Remo, hold Voice, glide pitch, then Quiebre or Remate. "
+			+ "Gamepad and touch also work. Record is for the opt-in microphone."
+		),
+		"player_one_control_description": (
+			"Remo: hold Voice, shape pitch, Break and Finish. Record uses the opt-in mic."
+		),
 		"single_player_description": "Explore the scorer and pitch ribbon; no rivals yet.",
 	}
 	var theme := GameTheme.new()

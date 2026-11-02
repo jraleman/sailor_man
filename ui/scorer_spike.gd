@@ -1,7 +1,7 @@
 extends Control
 
-## Opt-in voice experiment, shared by the shell scaffold and the dev-only scene.
-## Tracks stay in memory; no microphone samples or profiles are saved.
+## Source-neutral voice workbench, shared by the shell and the dev-only scene.
+## Microphone access stays opt-in; Remo never needs it. Tracks stay in memory.
 
 signal score_ready(result: Dictionary)
 signal pause_requested
@@ -13,6 +13,8 @@ const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Scorer = preload("res://games/sailor_man/duel/saloma_scorer.gd")
 const Capture = preload("res://games/sailor_man/voice/mic_capture.gd")
 const Source = preload("res://games/sailor_man/voice/mic_voice_source.gd")
+const RemoSource = preload("res://games/sailor_man/voice/touch_voice_source.gd")
+const RemoTone = preload("res://games/sailor_man/audio/remo_tone.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const NORMAL_WINDOW := 6.0
 const LONG_WINDOW := 9.0
@@ -35,6 +37,11 @@ const MARK_NAMES := {
 
 var _capture: Node
 var _source := Source.new()
+var _remo := RemoSource.new()
+var _remo_tone: RemoTone
+var _remo_active := false
+var _remo_bindings: Dictionary[StringName, int] = {}
+var _remo_triggers: Dictionary[int, bool] = {}
 var _track: Array[Dictionary] = []
 var _reference: Array[Dictionary] = []
 var _profile := Frame.profile()
@@ -54,6 +61,14 @@ func _ready() -> void:
 	_record.pressed.connect(_toggle_recording)
 	_reference_button.pressed.connect(keep_reference)
 	_clear_reference.pressed.connect(clear_reference)
+	(%StartRemo as Button).pressed.connect(_toggle_remo)
+	(%RemoBreak as Button).pressed.connect(func() -> void: _remo.quiebre())
+	(%RemoFinish as Button).pressed.connect(func() -> void: _remo.remate())
+	_ribbon.set("source", _remo)
+	_ribbon.set("break_button", %RemoBreak)
+	_ribbon.connect("turn_requested", _start_remo)
+	_remo_tone = RemoTone.new()
+	add_child(_remo_tone)
 	(%ShapedExample as Button).pressed.connect(load_example.bind(true))
 	(%FlatExample as Button).pressed.connect(load_example.bind(false))
 	(%Pause as Button).pressed.connect(func() -> void: pause_requested.emit())
@@ -68,12 +83,17 @@ func _ready() -> void:
 	if settings != null:
 		settings.connect("changed", _on_setting_changed)
 	get_viewport().size_changed.connect(_fit_ui)
+	Input.joy_connection_changed.connect(_on_joy_connection_changed)
+	_reload_bindings()
 	_reload_options()
 	_update_controls()
 	_fit_ui.call_deferred()
 
 
 func _process(delta: float) -> void:
+	if _remo_active:
+		_process_remo(delta)
+		return
 	if _capture == null or not bool(_capture.call("is_ready")):
 		return
 	var frames: PackedVector2Array = _capture.call("poll")
@@ -96,6 +116,18 @@ func _process(delta: float) -> void:
 		_finish_recording()
 
 
+func _input(event: InputEvent) -> void:
+	var voice_pressed := _is_remo_voice_press(event)
+	if _recording or not is_visible_in_tree() or event.is_action_pressed(&"pause"):
+		return
+	if not _remo_active:
+		if not _ribbon.has_focus() or not voice_pressed:
+			return
+		_start_remo()
+	if _remo.handle_event(event, _remo_bindings):
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if (
 		InputMap.has_action(Options.RECORD_ACTION)
@@ -108,6 +140,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 ## Deliberately synthetic visual fixtures, never a stand-in for a cast rival.
 func load_example(shaped: bool) -> void:
 	_cancel_recording()
+	_cancel_remo()
 	_profile = Frame.profile()
 	_track.clear()
 	for index in 550:
@@ -131,12 +164,15 @@ func load_example(shaped: bool) -> void:
 
 ## Eco uses the next performance, not a retroactive perfect match of this one.
 func keep_reference() -> void:
-	if _recording or _track.is_empty() or not bool(_last_result.get("valid", false)):
+	if (
+		_recording or _remo_active or _track.is_empty()
+		or not bool(_last_result.get("valid", false))
+	):
 		_status.text = "Finish and score a valid call before keeping a reference."
 		return
 	_reference = _track.duplicate(true)
 	_clear_reference.disabled = false
-	_status.text = "Reference kept. Record or load the next answer to test Eco."
+	_status.text = "Reference kept. Try Remo, record or load the next answer to test Eco."
 	_ribbon.call("show_tracks", _track, _reference, _last_result.get("evidence", {}), _window)
 
 
@@ -154,15 +190,16 @@ func reset_session() -> void:
 	_track.clear()
 	_reference.clear()
 	_last_result.clear()
-	_marks.text = "No call scored yet. Enable the microphone or load a synthetic example."
-	_status.text = "Microphone off. Nothing is recorded until you enable it."
+	_marks.text = "No call scored yet. Try Remo, enable a microphone or load an example."
+	_status.text = "Microphone off. Start a Remo call or hold the ribbon; no microphone needed."
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_update_controls()
 
 
-## Explicitly release input on pause, results or scene exit.
+## Explicitly release both input paths and the tone on pause, results or exit.
 func stop_capture() -> void:
 	_cancel_recording()
+	_cancel_remo()
 	if is_instance_valid(_capture):
 		_capture.call("stop")
 		_capture.queue_free()
@@ -173,11 +210,13 @@ func stop_capture() -> void:
 
 
 func _toggle_microphone() -> void:
+	_cancel_remo()
 	if _capture != null:
 		stop_capture()
 		return
 	if _device.item_count == 0:
 		_status.text = "No input device is available. The synthetic examples still work."
+		_update_controls()
 		return
 	_capture = Capture.new()
 	_capture.connect("calibrated", _on_calibrated)
@@ -203,17 +242,20 @@ func _on_capture_failed(reason: String) -> void:
 
 
 func _toggle_recording() -> void:
+	_cancel_remo()
 	if _recording:
 		_finish_recording()
 		return
 	if _capture == null or not bool(_capture.call("is_ready")):
 		_status.text = "Enable the microphone and finish the room check first."
+		_update_controls()
 		return
 	_profile = Frame.profile(_chest.value)
 	_profile["carry_level"] = _carry.value
 	var error := Frame.profile_error(_profile)
 	if not error.is_empty():
 		_status.text = error
+		_update_controls()
 		return
 	_capture.call("discard")
 	_source.begin(AudioServer.get_mix_rate(), _profile, _noise_floor, _sensitivity)
@@ -268,6 +310,133 @@ func _cancel_recording() -> void:
 	_no_audio_seconds = 0.0
 
 
+func _toggle_remo() -> void:
+	if _remo_active:
+		_finish_remo()
+	else:
+		_start_remo()
+
+
+func _start_remo() -> void:
+	stop_capture()
+	_profile = RemoSource.profile()
+	_track.clear()
+	_last_result.clear()
+	_elapsed = 0.0
+	_remo.begin()
+	_remo_active = true
+	_marks.text = "Remo listening. Hold Voice, shape the pitch, then finish."
+	_status.text = "Remo uses buttons or touch, not your microphone. Preview: synthetic tone."
+	_ribbon.call("show_tracks", _track, _reference, {}, _window)
+	_ribbon.grab_focus()
+	_update_controls()
+	(%Scroll as ScrollContainer).ensure_control_visible.call_deferred(_ribbon)
+
+
+func _process_remo(delta: float) -> void:
+	var step := minf(delta, maxf(_window - _elapsed, 0.0))
+	var frames := _remo.advance(step)
+	_track.append_array(frames)
+	_elapsed += step
+	if not frames.is_empty():
+		_remo_tone.play_frame(frames[-1])
+	_ribbon.call("show_tracks", _track, _reference, {}, _window)
+	_status.text = "Remo: %.1f / %.0f s | Synthetic tone, not a captain recording." % [
+		_elapsed, _window,
+	]
+	if _remo.is_finished() or _elapsed >= _window:
+		_finish_remo()
+
+
+func _finish_remo() -> void:
+	if not _remo_active:
+		return
+	_remo_active = false
+	_remo.finish()
+	_remo_tone.stop()
+	if _track.is_empty():
+		_status.text = "No Remo frames captured. Start a call and hold Voice or the ribbon."
+		_marks.text = "No call scored."
+		_update_controls()
+		return
+	if _judge():
+		_status.text = "Remo scored by the shared saloma scorer. Keep it as a reference to test Eco."
+
+
+func _cancel_remo() -> void:
+	if _remo_active:
+		_track.clear()
+		_last_result.clear()
+		_marks.text = "Remo call cancelled. No score recorded."
+		_ribbon.call("show_tracks", _track, _reference, {}, _window)
+	_remo_active = false
+	_remo.finish()
+	if is_instance_valid(_remo_tone):
+		_remo_tone.stop()
+	if is_instance_valid(_ribbon):
+		_ribbon.call("clear_contacts")
+
+
+func _is_remo_voice_press(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		var code := int(key.physical_keycode if key.physical_keycode != KEY_NONE
+			else key.keycode)
+		return key.pressed and not key.echo and code == _remo_bindings.get(&"voice", KEY_NONE)
+	if event is InputEventJoypadButton:
+		var button := event as InputEventJoypadButton
+		return button.pressed and button.button_index == JOY_BUTTON_A
+	if event is InputEventJoypadMotion:
+		var motion := event as InputEventJoypadMotion
+		if motion.axis != JOY_AXIS_TRIGGER_RIGHT:
+			return false
+		var held := motion.axis_value > RemoSource.TRIGGER_THRESHOLD
+		var pressed := held and not bool(_remo_triggers.get(motion.device, false))
+		# Keep the edge across turn boundaries so analog jitter cannot restart.
+		_remo_triggers[motion.device] = held
+		return pressed
+	return false
+
+
+func _reload_bindings() -> void:
+	var settings := get_node_or_null("/root/Settings")
+	_remo_bindings.clear()
+	for binding: Dictionary in Options.CONTROL_BINDINGS:
+		if binding["action"] not in Options.REMO_ACTIONS:
+			continue
+		var action := StringName(str(binding["action"]).trim_prefix("sailor_man_"))
+		_remo_bindings[action] = int(
+			settings.call("binding_keycode", str(binding["key"]))
+			if settings != null else binding["default"]
+		)
+	(%RemoHelp as Label).text = (
+		"Start Remo, then hold %s for Voice. Pitch: %s / %s (or arrows). "
+		+ "%s: Quiebre. %s: Remate.\n"
+		+ "Pad: hold A / RT; left stick or D-pad for pitch; X / RB for Break; B to finish.\n"
+		+ "Touch or mouse: hold the ribbon and drag vertically. Flick up or press Break; "
+		+ "flick down to finish. The preview is a synthetic tone, not a captain recording."
+	) % [
+		OS.get_keycode_string(_remo_bindings[&"voice"]),
+		OS.get_keycode_string(_remo_bindings[&"pitch_up"]),
+		OS.get_keycode_string(_remo_bindings[&"pitch_down"]),
+		OS.get_keycode_string(_remo_bindings[&"quiebre"]),
+		OS.get_keycode_string(_remo_bindings[&"remate"]),
+	]
+
+
+func _on_joy_connection_changed(device: int, connected: bool) -> void:
+	if not connected:
+		_remo.forget_device(device)
+		_remo_triggers.erase(device)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and _remo_active:
+		_cancel_remo()
+		_status.text = "Remo cancelled when the window lost focus. Start again when ready."
+		_update_controls()
+
+
 func _judge() -> bool:
 	_last_result = Scorer.score(_track, _profile, _reference, _quiet)
 	if not bool(_last_result["valid"]):
@@ -314,7 +483,7 @@ func _reload_options() -> void:
 		_sensitivity = float(settings.call("tunable", Options.MIC_SENSITIVITY_KEY))
 	_options_label.text = (
 		"%.0f s window | Quiet Mode %s | Sensitivity %.0f%%\n"
-		+ "Unmeasured falsetto: the softer Quiebre rule is active."
+		+ "Mic: unmeasured falsetto uses the softer rule. Remo: authored 700-1300-cent band."
 	) % [_window, "on" if _quiet else "off", _sensitivity * 100.0]
 
 
@@ -323,6 +492,13 @@ func _on_setting_changed(key: String, _value: Variant) -> void:
 		_reload_options()
 	elif key == "ui/scale":
 		_fit_ui()
+	else:
+		for binding: Dictionary in Options.CONTROL_BINDINGS:
+			if key == str(binding["key"]):
+				_cancel_remo()
+				_reload_bindings()
+				_update_controls()
+				break
 
 
 func _fit_ui() -> void:
@@ -359,16 +535,21 @@ func _fit_ui() -> void:
 
 
 func _update_controls() -> void:
-	_record.disabled = _capture == null or not bool(_capture.call("is_ready"))
+	_record.disabled = _remo_active or _capture == null or not bool(_capture.call("is_ready"))
 	_record.text = "Stop and score" if _recording else "Record call"
 	_enable.text = "Disconnect mic" if _capture != null else "Enable microphone"
 	_reference_button.disabled = (
-		_recording or _track.is_empty() or not bool(_last_result.get("valid", false))
+		_recording or _remo_active or _track.is_empty()
+		or not bool(_last_result.get("valid", false))
 	)
-	_clear_reference.disabled = _reference.is_empty() or _recording
+	_clear_reference.disabled = _reference.is_empty() or _recording or _remo_active
 	_device.disabled = _capture != null
-	_chest.editable = not _recording
-	_carry.editable = not _recording
+	_chest.editable = not _recording and not _remo_active
+	_carry.editable = not _recording and not _remo_active
+	(%StartRemo as Button).text = "Stop Remo" if _remo_active else "Start Remo call"
+	(%RemoBreak as Button).disabled = not _remo_active
+	(%RemoFinish as Button).disabled = not _remo_active
+	_ribbon.set("enabled", not _recording)
 
 
 func _exit_tree() -> void:

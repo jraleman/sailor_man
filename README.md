@@ -1,8 +1,8 @@
 # Sailor Man
 
-A saloma call-and-response game in development. The first delivery is a
-**shared voice scorer and opt-in microphone workbench**, not yet the canal
-campaign or a duel.
+A saloma call-and-response game in development. The current delivery is a
+**shared voice scorer with Remo controls and an opt-in microphone workbench**,
+not yet the canal campaign or a duel.
 
 ## Run the prototype
 
@@ -19,6 +19,44 @@ development-only workbench without the HUD:
 ```powershell
 godot --path . res://games/sailor_man/tools/scorer_spike.tscn -- --game=sailor_man
 ```
+
+## Remo practice (no microphone)
+
+Choose **Start Remo call**, then draw a performance with these controls:
+
+| Action | Keyboard | Gamepad | Touch |
+| --- | --- | --- | --- |
+| Voice | Hold Space | Hold A or right trigger | Hold the ribbon |
+| Pitch | Hold W/S or up/down arrows | Left stick Y or D-pad | Drag vertically |
+| Quiebre | J | X or right bumper | Flick up, or use a second finger on Break |
+| Remate | K | B | Flick down to finish |
+
+The five Remo keys are rebindable under **Settings -> Controls**;
+the on-screen hints follow the current bindings. Arrows and gamepad controls
+are fixed extras. You can also hold/drag with the mouse and click Break or
+Remate. Touching the ribbon starts a window without first pressing Start.
+After a turn, a fresh Voice press starts another while the ribbon has focus.
+
+Remo emits the same consecutive 100 Hz frames and uses the same scorer,
+marks, evidence and kept-reference Eco as the microphone. Its virtual chest
+centre is 0 cents, with an authored +700-1300-cent falsetto band. Quiebre
+normally moves 700 cents over 40 ms, ensuring a low note still reaches that
+band; pitch glides at 1800 cents/s within -300 to +1300 cents. The known
+virtual band uses the calibrated-band rule, not the microphone's unmeasured
+fallback. It does not mark any human voice as calibrated.
+
+Remate deliberately releases Voice and retains 120 ms of silent frames
+before judging. **Stop Remo** scores the current track without inventing a
+finish; the six/nine-second deadline also closes the window. An original,
+clearly labelled **synthetic tone**, routed through the normal SFX bus,
+previews the pitch. It is not a recorded captain or an authentic saloma.
+
+Starting Remo disconnects any microphone and discards an unfinished mic call.
+Switching to the microphone, pausing, losing window focus or rebinding cancels
+an unfinished Remo turn and stops its tone, without changing the last shell
+score or an earlier kept reference. No performance audio or tracks are saved.
+
+## Microphone practice
 
 The microphone starts **off**. Select a device, choose **Enable microphone**,
 and stay quiet for the two-second room check. Set a comfortable chest reference
@@ -37,8 +75,8 @@ even when pressed before the next regular input poll.
 
 The shaped and flat examples are explicitly **synthetic fixtures**, available
 without microphone permission. **Keep reference** retains a call in memory;
-the next recording/example is an answer and can earn Eco. **Finish session**
-opens the shell's results, and replay clears the session.
+the next Remo call, recording or example is an answer and can earn Eco.
+**Finish session** opens the shell's results, and replay clears the session.
 
 ## Implemented
 
@@ -48,6 +86,8 @@ opens the shell's results, and replay clears the session.
   gate, and Quiet Mode's gate bypass. Extra volume earns nothing.
 - A locally adapted MPM detector, continuous microphone-to-track pipeline,
   opt-in capture, device/error handling and a live pitch/reference ribbon.
+- Keyboard/gamepad and independent multitouch Remo sources on the same
+  100 Hz track contract, with a synthetic pitch preview and no microphone access.
 - Quiet Mode, six/nine-second windows and 50-150% sensitivity in the Game tab.
 - Shell discovery, pause, results and replay; scrolling layouts from phone to
   ultrawide, including enlarged UI; original prototype icon and walkthrough.
@@ -121,13 +161,14 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Four suites cover the pure scorer, low/high-register equivalence, synthesized
-PCM through the detector/source, and the real workbench/shell:
+Five suites cover the pure scorer, low/high-register equivalence, synthesized
+PCM, Remo sources/parity, and the real workbench/shell:
 
 ```powershell
 godot --headless --path . --script res://games/sailor_man/tests/saloma_scorer_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_normalisation_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_pipeline_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/remo_source_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 ```
@@ -145,6 +186,17 @@ mono/stereo and 8-/16-bit combinations at 44.1/48/96 kHz against direct PCM,
 preserved silence/gain, rejected input, Quiet Mode/Eco, and actual command-line
 JSON and exit codes, including file paths with spaces.
 
+Remo regressions cover render-frame-independent sampling, key rebinding/repeat,
+gamepad axes/triggers and mixed holds, touch ownership/hand-off, flicks and
+the shared scorer. The synthetic ideal Remo and normalized sung fixtures both
+score **91.3846/100**, within the required 5% parity. The scene suite sends
+simulated keyboard, gamepad and multitouch events through the actual viewport,
+including preview pitch, Eco, source switching, cancellation and real pause/resume.
+A held trigger must be released before its next press can start another turn;
+analog jitter cannot silently restart one. These are not physical gamepad/
+touchscreen or acoustic-listening checks. `TODO.md` records the validation
+results and remaining shared-audio shutdown diagnostic.
+
 For physical-device QA, explicitly enable a microphone and check the room
 measurement, a comfortable call, Quiet Mode and Stop. Then test unavailable
 or denied input, loss of incoming buffers, and pausing mid-call: no failed turn
@@ -157,11 +209,14 @@ recordings or cultural partner are available yet. The five marks are a game's
 simplification, not a definition of the tradition. Do not treat synthetic
 scores as passing the real-recording milestone gate.
 
-Remo controls, full Soundcheck/profiles, rivals, tandas, the 3D canal, campaign
-and two-player hot seat remain future work. See `DESIGN.md` and `TODO.md`.
+The owner authorized Remo development under the assumption that real-voice
+validation works. That assumption does not mark its unchecked gate complete.
+Full Soundcheck/profiles, rivals, tandas, the 3D canal, campaign and two-player
+hot seat remain future work. See `DESIGN.md` and `TODO.md`.
 
-Re-record the labelled synthetic walkthrough only when its visuals/captions
-change; it never enables the microphone:
+Re-record the labelled Remo walkthrough only when its visuals/captions change.
+It drives actual keyboard events through the scorer and Eco, never enabling
+the microphone or substituting a prerecorded saloma:
 
 ```powershell
 pwsh tools\record_tutorials.ps1 -Godot <godot-executable> -Games sailor_man -Variants solo -Quality 6

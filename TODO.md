@@ -48,8 +48,8 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
 - [ ] Commit `DESIGN.md` and this `TODO.md` to the game repository.
 - [x] Folder `AGENTS.md` with game-specific agent notes.
 - [x] `sailor_man_options.gd` — constants-only: `GAME_ID`, Quiet Mode, longer
-      windows, sensitivity and the spike's rebindable Record action. Future
-      Remo bindings, levels, captains, store and gallery stay undeclared.
+      windows, sensitivity, the spike's Record action and implemented Remo
+      bindings. Levels, captains, store and gallery stay undeclared.
 - [x] `game.gd` — minimal manifest (§7.4): id, title, tagline, `menu_order = 10`,
       `CONTROL_STYLE_CUSTOM_KEYS`, `uses_shell_round_rules = false`, tunables,
       bindings. Leave multiplayer off until Phase 8.
@@ -111,7 +111,8 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
 crisp stop **47.0588/100**, identical shaped answer **90.5385/100** (Eco 1.0).
 These fixtures are not recordings and do not satisfy the exit above. Real
 salomero recordings, physical microphones/permissions and cultural review
-remain unverified. Do not proceed to Remo/duel implementation on this evidence.
+remain unverified. The owner subsequently authorized Remo development assuming
+validation works. That assumption is not evidence to complete this exit.
 
 The physical-microphone checklist is in `README.md`; it still requires a person
 to explicitly enable a device and test permissions, comfortable calls, Quiet
@@ -147,16 +148,38 @@ in the final checks. This is still synthetic evidence, not the real-voice exit.
 
 ## Milestone 2 — Remo mode (§4.5)
 
-- [ ] Declare bindings: Voice, Pitch up/down, Quiebre, Remate (keys + gamepad).
-- [ ] `voice/key_voice_source.gd` — virtual profile (chest 0, falsetto
+- [x] Declare bindings: Voice, Pitch up/down, Quiebre, Remate (keys + gamepad).
+- [x] `voice/key_voice_source.gd` — virtual profile (chest 0, falsetto
       +700…+1300), 700-cent quiebre over 40 ms, glide 1800 cents/s.
-- [ ] `voice/touch_voice_source.gd` — hold, vertical drag, flick up and down,
+- [x] `voice/touch_voice_source.gd` — hold, vertical drag, flick up and down,
       Break button, independent multitouch.
-- [ ] `ui/remo_ribbon.gd` — the drawing lane, with the call's contour for answers.
-- [ ] Placeholder captain voice, pitch-shifted along the track (synth allowed for now).
-- [ ] `tests/remo_source_test.gd` — inputs → frames; ideal Remo vs ideal sung
+- [x] `ui/remo_ribbon.gd` — the drawing lane, with the call's contour for answers.
+- [x] Labelled, original synthetic tone preview following the track's pitch.
+      Real captain recordings remain Phase 6, not implied by this placeholder.
+- [x] `tests/remo_source_test.gd` — inputs → frames; ideal Remo vs ideal sung
       within 5 %.
-- [ ] **Exit:** parity test green, and a Remo turn scores on the spike scene.
+- [x] **Exit:** parity test green, and a Remo turn scores on the spike scene.
+
+The owner approved this milestone under the assumption that the real-voice
+gate works; Milestone 1 above remains unchecked. The ideal synthetic Remo and
+normalized sung fixtures both score **91.3846/100**. All five game suites and
+all 15 framework suites exited 0 with Dummy audio and isolated profiles, with
+no script errors. Actual viewport-input regressions cover keyboard/gamepad/
+multitouch, Eco, preview pitch, source switching, pause/resume and held-trigger
+jitter across turns. The trigger regression failed before its fix. The scene
+suite also passed all eight real OpenGL phone-to-ultrawide layouts with
+normal/150% UI size, including multitouch at 320×568 and 150% UI.
+
+The 21-second Remo walkthrough was re-recorded from actual keyboard events,
+validated, encoded and reimported with a refreshed poster. Its call scored
+**91.4434/100** and answer **92.7269/100**, with three breaks and Eco 1.0.
+These are synthetic controls, not recordings or physical-device checks.
+
+The existing framework shutdown-resource diagnostics and deliberate bad-backup
+errors remain. Some scene runs also logged an intermittent shutdown resource
+warning; verbose native tracing identified the shared `assets/audio/ui_back.wav`
+and its playback, not Remo's generated tone. All scene assertions passed and
+the process exited 0. This shared-audio cleanup issue was not changed here.
 
 ## Milestone 3 — Duel in a grey box (§3)
 
