@@ -1,6 +1,6 @@
 extends RefCounted
 
-## A playable grey-box duel, without advertising the unfinished canal voyage.
+## A toy-canal practice duel, without advertising the unfinished canal voyage.
 
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 
@@ -25,7 +25,7 @@ static func manifest() -> GameManifest:
 	game.copy = {
 		"instructions_headline": "Win two tandas against the practice skiff",
 		"instructions_rules": (
-			"Grey-box prototype with one explicitly synthetic rival, not a recorded "
+			"Practice-lock prototype with one explicitly synthetic rival, not a recorded "
 			+ "salomero. Listen to its call, press Ready and wait for YA! "
 			+ "Answer with Remo or an explicitly enabled microphone. The player calls "
 			+ "tanda two. Win two tandas; ties go to the answerer. The chamber clock "

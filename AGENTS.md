@@ -1,7 +1,7 @@
 # Sailor Man
 
 Read the root `AGENTS.md`, then `DESIGN.md` and `TODO.md`. The design describes
-the target game; the current implementation is a grey-box duel against one
+the target game; the current implementation is a toy-canal duel against one
 synthetic practice skiff, plus the microphone/Remo scorer workbench. Do not
 advertise a finished voyage or recorded salomero opponents.
 
@@ -13,6 +13,9 @@ advertise a finished voyage or recorded salomero opponents.
   placeholder rival; it does not offer a second generic vs-CPU setup mode.
   Soundcheck and named calibration profiles are implemented. Campaign,
   production rival crews, hot seat, store and gallery are not implemented.
+- Real canal place names are owner-approved without authority branding.
+  The toy Gatún practice lock is implemented, not the lake/cut/bridges/Pacific.
+  Plain crew/spectators imply no traditional dress or reviewed cultural assets.
 - No performer recordings or cultural partner are available yet. Synthetic
   fixtures prove algorithm behavior, not authentic saloma quality. The real
   recording comparison in DESIGN Milestone 1 remains unverified. The owner
@@ -108,9 +111,17 @@ advertise a finished voyage or recorded salomero opponents.
   Restore both visibility and enabled state when returning to full Practice.
   Scale fonts/targets against the real canvas transform, not only logical
   viewport bounds. Check portrait, short landscape, ultrawide and 150% UI size.
-- `world/greybox_lock.gd` owns the static isolated compatibility viewport.
-  Water follows the chamber clock; no ambient movement is necessary. Narrow
-  listening layouts deliberately prioritize the input ribbon over the arena.
+- `world/canal_view.gd` owns the isolated Compatibility viewport and singer-aware
+  two-shot. `boat_rig.gd`, `lock_set.gd`, `scenery.gd` and `crowd.gd` are batched,
+  game-owned geometry; the local mesh builder has no cross-game runtime imports.
+  Keep both complete boats/labels framed at both water endpoints. Reduced motion
+  immediately parks framing, bobbing and waves, not essential water state.
+  Hidden layouts stop rendering/processing; ordinary shell pause stops decoration.
+- `world/voice_ribbon.gd` draws only admitted frames using their source profile.
+  Never mutate tracks, connect silent spans, infer new breaks or reward amplitude.
+  Review diamonds come from scorer evidence and disappear with intense effects off;
+  the contour remains. Cancellation restores the scored reference, replay clears it.
+  Narrow listening deliberately prioritizes the input ribbon over the canal.
 - Preserve `GameShell` pause/results/replay and call `super(value)` in both
   accessibility overrides. Keep `gl_compatibility`.
   Duel stats use the shell's `details` entries, not renamed hits/streaks.
@@ -151,9 +162,12 @@ godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --game=all
 ```
 
-The three windowed runs verify actual rendered layouts; they also accept
+Nine suites support headless runs. `canal_view_test.gd` requires a graphics
+window and deliberately refuses `--headless`. The four windowed runs verify
+actual rendered layouts; they also accept
 `--sailor-capture-dir=<absolute directory>` after `--`. Use isolated user data
 for integration runs. On Windows, use the console executable or
 `Start-Process -Wait -PassThru` and check `ExitCode`; a direct GUI-executable
@@ -167,6 +181,11 @@ usable window size and UI scale before coordinate-based input checks, even
 headlessly, and resume the real pause menu rather than only freeing it.
 Native duel checks include full boat-mesh framing, an isolated 3D world,
 a nonempty render below 60 draw calls and all eight size/UI-scale combinations.
+The canal suite covers both singer framings/water endpoints, actual paint/contour
+pixels, hidden-view shutdown, pause and reduced-motion/effects switches. Its
+measured maximum is 21 draws. Headless checks cover profile-relative contours,
+amplitude invariance, silent gaps and essential water updates. MultiMesh endpoint
+checks run natively: the dummy renderer does not retain instance transforms.
 Soundcheck covers Room/High/Call/Complete, including the live ribbon staying
 visible after resize and failed saves revealing their status in the scroller.
 Keep the duel suite's audio-mixer cleanup wait: stopping playback is queued,

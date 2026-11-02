@@ -1,6 +1,6 @@
 extends GameShell
 
-## One shell round is one grey-box duel; practice keeps the existing workbench.
+## One shell round is one practice duel; the workbench remains independently usable.
 ## Sources and presentation never decide the winner or bypass the shared scorer.
 
 const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
@@ -98,6 +98,7 @@ func _reset_round_state() -> void:
 	_duel_seconds = 0.0
 	_duel.reset(Settings.tunable_bool(Options.LONG_WINDOWS_KEY))
 	_resolve_source()
+	_duel_hud.call("reset_view")
 	_duel_hud.call("show_track", _duel.call_track, _duel.call_track, {},
 		_duel.window_seconds, Frame.profile())
 	_phase_seen = -1
@@ -170,10 +171,14 @@ func _configure_mode_ui() -> void:
 
 func _set_reduced_motion_enabled(value: bool) -> void:
 	super(value)
+	if is_instance_valid(_duel_hud):
+		_duel_hud.call("set_reduced_motion", value)
 
 
 func _set_intense_effects_enabled(value: bool) -> void:
 	super(value)
+	if is_instance_valid(_duel_hud):
+		_duel_hud.call("set_intense_effects", value)
 
 
 func _on_score_ready(result: Dictionary) -> void:
@@ -353,7 +358,7 @@ func _show_last_turn() -> void:
 		if int(record["singer"]) == Duel.Singer.PLAYER else _rival["frames"],
 		reference, record["result"]["evidence"], _duel.window_seconds,
 		_spike.get("_profile") if int(record["singer"]) == Duel.Singer.PLAYER
-			else Frame.profile())
+			else _rival["profile"], int(record["singer"]))
 
 
 func _advance_rival(delta: float) -> void:
@@ -365,7 +370,7 @@ func _advance_rival(delta: float) -> void:
 	if _duel.turn == 1:
 		reference = _duel.call_track
 	_duel_hud.call("show_track", _rival_frames.slice(0, _rival_index),
-		reference, {}, _duel.window_seconds, Frame.profile())
+		reference, {}, _duel.window_seconds, _rival["profile"])
 	if _rival_index < _rival_frames.size():
 		return
 	_rival_tone.stop()
@@ -387,8 +392,11 @@ func _on_duel_frames(frames: Array[Dictionary]) -> void:
 	var error := _duel.observe_frames(frames)
 	if not error.is_empty():
 		_on_turn_cancelled(error)
+		return
 	elif _duel.silence_closed():
 		_spike.call("limit_duel_turn", _duel.accepted_frame_count())
+	_duel_hud.call("show_live_track", _spike.get("_track"),
+		_duel.window_seconds, _spike.get("_profile"))
 
 
 func _on_turn_cancelled(reason: String) -> void:
@@ -396,6 +404,8 @@ func _on_turn_cancelled(reason: String) -> void:
 		_duel.cancel_player()
 		_phase_seen = _duel.phase
 		_message = reason
+		_duel_hud.call("show_track", _duel.call_track, _duel.call_track, {},
+			_duel.window_seconds, _rival["profile"], Duel.Singer.RIVAL)
 		_sync_hud()
 
 

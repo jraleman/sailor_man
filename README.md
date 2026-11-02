@@ -1,7 +1,7 @@
 # Sailor Man
 
 A saloma call-and-response game in development. The current delivery is a
-**playable grey-box duel against one explicitly synthetic practice skiff**,
+**playable toy-canal duel against one explicitly synthetic practice skiff**,
 using the shared voice scorer, Remo controls or an opt-in microphone. The
 finished canal campaign, recorded rival crews and hot seat are not implemented.
 
@@ -22,7 +22,7 @@ workbench without the shell:
 godot --path . res://games/sailor_man/tools/scorer_spike.tscn -- --game=sailor_man
 ```
 
-## The grey-box duel
+## The practice duel
 
 The practice skiff calls tanda one. Review its numbered paddles, then
 **Continue**, optionally **Repeat call** once, and press **Ready**. A short
@@ -44,7 +44,7 @@ equal winning margins use the loser of tanda two.
 
 Win two tandas to finish. The four-minute chamber clock pauses inside scored
 performances; reviewing, getting ready and repeating consume between-turn
-time. Time expiring awards the rival the duel, not a lost life. The static
+time. Time expiring awards the rival the duel, not a lost life. The toy
 3D lock's water follows this clock. **Results / Retry** opens the real shell
 results, with judge totals, tandas, best turn, breaks, longest breath and input
 source; replay clears duel-local scores, tracks and references.
@@ -60,6 +60,34 @@ without changing the saved Auto preference.
 The skiff's authored track and synthetic tone are development placeholders,
 not performer recordings. Turn gating and tail protection are implemented,
 but real room reverb, devices and permissions still need physical QA.
+
+## The toy Gatún lock
+
+The practice duel now uses original batched launch, chamber, miter-gate,
+rail-mounted mula, palm and crowd meshes in its own Compatibility viewport.
+Both boats retain blue/red paint, pennants and explicit **P1 / CPU** labels.
+Their plain toy crew imply no named captain or traditional costume. The same
+boat rig exposes empty hat/bow attachment slots for later cosmetics; no shop
+or gallery is implemented.
+
+The camera eases modestly toward the performing singer while keeping both
+complete boats in shot. The admitted pitch track unrolls from the crew's
+mouth over the water, relative to that source's own profile. Silence breaks
+the strip; extra volume cannot widen it. Static review diamonds use the
+scorer's existing break evidence, not another detector or scoring path.
+Cancellation restores the scored reference rather than displaying a partial
+take as a finished performance.
+
+Reduced motion parks the two-shot, bobbing and crowd waves immediately;
+essential water and contour updates still work. Turning intense effects off
+omits review diamonds, not the pitch contour. Pause stops decorative time,
+and deliberately hidden layouts/overlays stop the viewport's rendering.
+Narrow listening still gives priority to the input ribbon and Break controls.
+
+Real place names are owner-approved **without canal-authority branding**.
+This is a compressed toy practice lock, not a simulator or a reviewed factual
+reconstruction. Lake/cut/bridge/Pacific scenery, arena modifiers, canal audio,
+the voyage and cultural review remain future work.
 
 ## Remo controls and practice (no microphone)
 
@@ -256,8 +284,8 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Nine suites cover the scorer, low/high-register equivalence, synthesized PCM,
-Remo parity, duel rules, calibration/persistence and three real scene paths.
+Ten suites cover the scorer, low/high-register equivalence, synthesized PCM,
+Remo parity, duel rules, calibration/persistence and the real scene/3D paths.
 Use `--audio-driver Dummy` for automated runs:
 
 ```powershell
@@ -273,9 +301,12 @@ godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --game=all
 ```
 
-The windowed scene runs check real rendering at 320x568, 568x320, 1280x720
+The first nine suites support headless runs. `canal_view_test.gd` requires
+a real graphics window and deliberately exits 1 with `--headless`.
+The four windowed runs check real rendering at 320x568, 568x320, 1280x720
 and 2560x1080 with normal and 150% UI size. Tests do not enable a physical
 microphone. Buffered-PCM regressions distinguish absent data from actual
 silence, check stall recovery and resumed buffers, and verify that pause/error
@@ -291,6 +322,15 @@ usable Remo controls after microphone setup. Native checks project the
 complete boat meshes through the actual camera, verify an isolated 3D world
 and guard a nonempty render below 60 draw calls. Narrow listening layouts
 deliberately hide the arena to keep the ribbon and touch buttons usable.
+
+Canal checks render both singer framings at both water endpoints in all eight
+size/UI combinations, inspect actual launch paint and visible contour pixels,
+and verify labels, pause, hidden-view shutdown and accessibility toggles.
+The native maximum is **21 draw calls**, below the 60-draw budget.
+Headless regressions cover source-relative/amplitude-independent geometry,
+silent gaps, water changes under reduced motion and clearing/retrying tracks.
+Native duel checks also verify that articulated tow lines stay attached.
+Pass `--sailor-capture-dir=<absolute directory>` after `--` for captures.
 
 Soundcheck checks feed synthesized PCM through the real wizard, detector and
 normalizer, including a queued Stop, observed versus skipped high band,
@@ -332,7 +372,7 @@ scores as passing the real-recording milestone gate.
 
 The owner authorized Remo and grey-box duel work assuming that real-voice
 validation works. That assumption does not mark its unchecked gate complete.
-Recorded rival crews, the finished 3D canal, campaign and two-player hot seat
+Recorded rival crews, the remaining canal arenas, campaign and two-player hot seat
 remain future work. See `DESIGN.md` and `TODO.md`.
 
 Re-record the labelled duel walkthrough only when its visuals/captions change.

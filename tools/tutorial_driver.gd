@@ -10,7 +10,8 @@ const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const STEPS: Array[Dictionary] = [
 	{
 		"time": 0.0, "title": "One synthetic practice rival",
-		"body": "First to two tandas wins. Remo needs no microphone; this is a grey-box prototype.",
+		"body": "First to two tandas wins at the toy Gat\u00fan lock. "
+			+ "Remo needs no microphone.",
 	},
 	{
 		"time": 1.0, "title": "Listen to the call",

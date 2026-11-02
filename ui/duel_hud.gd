@@ -1,7 +1,7 @@
 extends PanelContainer
 
 ## Game-owned turn, judge and input presentation under the shared round shell.
-## Narrow listening layouts give the ribbon the space used by the static arena.
+## Narrow listening layouts give the input ribbon the space used by the canal.
 
 signal action_requested
 signal repeat_requested
@@ -15,11 +15,12 @@ signal pause_requested
 
 const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const Judges = preload("res://games/sailor_man/duel/judges.gd")
-const Lock = preload("res://games/sailor_man/world/greybox_lock.gd")
+const Canal = preload("res://games/sailor_man/world/canal_view.gd")
 const Ribbon = preload("res://games/sailor_man/ui/voice_ribbon.gd")
+const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 
-var lock: Lock
+var lock: Canal
 var primary: Button
 var repeat: Button
 var _margins: MarginContainer
@@ -58,7 +59,7 @@ func _ready() -> void:
 	_margins.add_child(frame)
 	var header := HBoxContainer.new()
 	frame.add_child(header)
-	_turn = _label(header, "Turn", "SAILOR MAN - GREY-BOX DUEL")
+	_turn = _label(header, "Turn", "SAILOR MAN - PRACTICE DUEL")
 	_turn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pause = _button(header, "PauseDuel", "Pause", func() -> void: pause_requested.emit())
 	_scroll = ScrollContainer.new()
@@ -115,7 +116,8 @@ func _ready() -> void:
 	_info.add_child(details)
 	for judge: Dictionary in Judges.panel():
 		_judges.append(_label(details, "Judge_" + str(judge["id"]), ""))
-	lock = Lock.new()
+	_label(details, "CanalCaption", "Gat\u00fan practice lock - a toy canal, not a simulator.")
+	lock = Canal.new()
 	lock.custom_minimum_size.y = 220
 	details.add_child(lock)
 	_rival_ribbon = Ribbon.new()
@@ -158,11 +160,33 @@ func focus_ready_action() -> void:
 ## Spectators see the same contour that Eco will use, including during repeats.
 func show_track(
 	frames: Array[Dictionary], reference: Array[Dictionary], evidence: Dictionary,
-	duration: float, profile: Dictionary = {}
+	duration: float, profile: Dictionary = {}, singer := Duel.Singer.RIVAL
 ) -> void:
 	if not profile.is_empty():
 		_rival_ribbon.set_profile(profile)
 	_rival_ribbon.show_tracks(frames, reference, evidence, duration)
+	lock.show_track(singer, frames, evidence, duration,
+		profile if not profile.is_empty() else Frame.profile())
+
+
+## Live player geometry does not replace the input lane's reference contour.
+func show_live_track(frames: Array[Dictionary], duration: float, profile: Dictionary) -> void:
+	lock.show_track(Duel.Singer.PLAYER, frames, {}, duration, profile)
+
+
+## Replay parks the camera and drops every previous performance's geometry.
+func reset_view() -> void:
+	lock.reset()
+
+
+## The shell's preference reaches decorative motion inside the isolated world.
+func set_reduced_motion(enabled: bool) -> void:
+	lock.set_reduced_motion(enabled)
+
+
+## A quiet effects setting keeps the contour but removes review spark markers.
+func set_intense_effects(enabled: bool) -> void:
+	lock.set_intense_effects(enabled)
 
 
 ## This view reads the duel's decisions, never awards points or advances a turn.
@@ -182,7 +206,7 @@ func present(
 			maxf(state.window_seconds - state.window_elapsed, 0.0),
 		]
 	elif state.phase == Duel.Phase.READY:
-		_turn.text = "SAILOR MAN - GREY-BOX DUEL"
+		_turn.text = "SAILOR MAN - PRACTICE DUEL"
 	elif state.phase == Duel.Phase.COMPLETE:
 		_turn.text = "P1 WINS" if state.winner == Duel.Singer.PLAYER else "CPU WINS"
 	_clock.text = "Tandas P1 %d - %d CPU | Chamber %d:%02d" % [
@@ -232,7 +256,9 @@ func present(
 		_judges[index].text = "%s | %s x1.5 | P1 %s / CPU %s\n%s" % [
 			judge["badge"], str(judge["taste"]).capitalize(), p1, cpu, note,
 		]
-	lock.present(state.chamber_fraction())
+	lock.present(state.chamber_fraction(), state.singer if state.phase in [
+		Duel.Phase.RIVAL, Duel.Phase.REPEAT, Duel.Phase.LISTENING,
+	] else -1)
 	_fit()
 	if changed and not primary.disabled:
 		primary.grab_focus.call_deferred()

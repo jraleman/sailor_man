@@ -22,8 +22,9 @@ below that depends on one should start until it is answered.
 - [ ] **Champion title gender** (§15.4) — "Rey / Reina del Canal" or neutral.
 - [x] **Hot seat** (§15.5) — two humans in v1; not enabled in the spike.
 - [x] **Grito** (§15.6) — part of Remate, no separate action.
-- [ ] **Real place names** (§15.7) — Gatún, Culebra, Miraflores and so on,
-      without canal-authority branding.
+- [x] **Real place names** (§15.7) — the owner approved real names, including
+      Gatún, Culebra and Miraflores, without canal-authority branding. This is
+      naming permission, not factual/cultural validation.
 - [x] **Soundcheck entry** (§10) — the owner chose the game-owned pre-duel /
       next-turn **Soundcheck** button. No generic Settings action-row API or
       framework game-name branch is needed.
@@ -311,24 +312,55 @@ mobile permissions, authentic recordings and cultural review remain unverified.
 
 ## Milestone 5 — The canal (§8)
 
-- [ ] `world/mesh_builder.gd` — copy from `cube_trials/world/`, adapt.
-- [ ] `world/canal_view.gd` — isolated `SubViewport`, two-shot, ease toward the
+- [x] `world/mesh_builder.gd` — locally adapt/prune the Cube Trials batcher;
+      no cross-game runtime dependency, Compatibility materials/palette.
+- [x] `world/canal_view.gd` — isolated `SubViewport`, two-shot, ease toward the
       singer, fixed under reduced motion.
-- [ ] `world/boat_rig.gd` — one rig for every boat: hull, paint, pennant (seat
-      colour + P1/P2 plaque), hat and bow slots.
-- [ ] `world/lock_set.gd` — walls, miter gates, mulas on rails, water level
+- [x] `world/boat_rig.gd` — reusable original hull, cabin, deck, fenders, plain
+      crew, seat paint/pennant, explicit P1/CPU plaques and empty hat/bow slots.
+      No captain roster, traditional costume or store is implied.
+- [x] `world/lock_set.gd` — walls, miter gates, mulas on rails, water level
       driven by the chamber clock.
-- [ ] `world/scenery.gd` — jungle banks, lake islands, cut terraces, both
-      bridges, Pacific skyline.
-- [ ] `world/crowd.gd` — batched spectators; waves off under reduced motion.
-- [ ] `world/voice_ribbon.gd` — ribbon unrolls over the water from the pitch
-      track, quiebre sparks (no flash with intense effects off).
+- [x] `world/scenery.gd` — practice-lock tabletop, tropical banks, palms/hills.
+- [ ] Remaining scenery — lake islands, cut terraces, both bridges, Pacific skyline.
+- [x] `world/crowd.gd` — batched plain toy spectators; waves off under reduced motion.
+- [x] `world/voice_ribbon.gd` — admitted, source-relative pitch unrolls over
+      water; silent gaps remain gaps and amplitude cannot widen it. Static
+      quiebre diamonds use scorer evidence and disappear with intense effects off.
 - [ ] Arena modifiers (§5.3): lock clock, lake Repeat, Culebra echo
       (600 ms, self-duel boss), Pacific five-judge panel.
 - [ ] `audio/sailor_audio.gd` — conch, lock horn, water roar, crowd, paddle
       clack, mula bell, cruise-only music bed.
-- [ ] `tests/canal_view_test.gd` *(window)* — both boats in shot, ribbon
+- [x] `tests/canal_view_test.gd` *(window)* — both boats in shot, ribbon
       readable, < 60 draw calls, portrait → ultrawide, Remo lane clear of the singers.
+- [x] **Practice-lock exit:** all game/framework/native suites pass; refreshed
+      real-input tutorial/poster validated and fully decoded. Other arena/art/audio
+      items above remain open; the full Milestone 5 is not complete.
+
+**Automated validation (Godot 4.7.2, Windows):** all ten game suites and all
+15 framework suites passed with isolated profiles and Dummy audio, without
+script errors. Nine game suites support headless runs; the new canal suite
+requires a graphics window. All three existing scene suites also passed
+natively. The canal suite renders both singer framings at both water endpoints
+across 320x568, 568x320, 1280x720 and 2560x1080 with normal/150% UI. Its maximum
+was **21 draw calls**, with complete boats, distinct paint/labels and actual
+visible contour pixels. Rendered frames were inspected.
+
+Regressions cover water/attached tow lines, mid-ease reduced-motion toggling,
+pause/hidden-view shutdown, source-profile forwarding, amplitude invariance,
+silent gaps, effects-off contours and clearing/restoring tracks on replay or
+cancellation. Native checks read MultiMesh transforms; the headless dummy
+renderer does not retain those transforms.
+
+The refreshed real-input walkthrough still completes the same 2-0 duel and
+shell results: **87.0470/100** for the answer (Eco **0.621341**) and
+**91.2670/100** for the call, each with three breaks and Remate. The silent
+960x540/30 fps Theora clip fully decodes to **962 timeline frames / 32.066667 s**,
+with a new 640x360 WebP poster. Reimport and both headless/native instructions-
+video checks passed. No microphone was opened. Existing shared-audio shutdown
+diagnostics and the Saves suite's deliberate damaged-backup parse errors remain.
+Other arenas/modifiers/audio, physical-device/browser/mobile QA, authentic
+recordings and cultural review are still open.
 
 ## Milestone 6 — Voices (§11) — blocked on §15.2
 

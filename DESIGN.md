@@ -21,8 +21,8 @@
 | Look-and-feel reference | `games/chicken_pit/` (3D world in a `SubViewport` under the 2D shell) |
 | Renderer | `gl_compatibility` — unchanged |
 
-**Current delivery:** a complete grey-box best-of-three duel against one
-explicitly synthetic practice skiff, with judges, an isolated 3D lock,
+**Current delivery:** a complete best-of-three practice duel against one
+explicitly synthetic skiff, with judges, an original toy Gatún lock,
 opt-in microphone input and Remo. Practice retains the full scorer workbench.
 The source manifest exposes this single-player prototype, not the target
 campaign or multiplayer described below. English-first
@@ -32,6 +32,11 @@ so Milestone 1's authentic-recording exit remains unverified. The owner
 authorized continuing with Remo and the grey-box duel assuming validation works,
 not as a claim that recordings or review were completed. See `README.md` for
 what actually runs and `TODO.md` for verified progress.
+The first canal-presentation slice adds batched launches, mulas/gates/banks,
+plain crew/crowd and a source-relative world ribbon. Both boats remain framed;
+reduced motion parks decoration, not water/contours. Other arenas, modifiers
+and canal audio are not implemented. Real place names are approved without
+authority branding; that does not verify geography or cultural claims.
 
 ---
 
@@ -877,6 +882,7 @@ cruises; more rivals per level; a grito-only quick-fire mode; daily rival.
 5. **Hot seat — confirmed:** two humans in v1, not three. Enable it only once
    the real duel and per-seat profile hand-off are implemented.
 6. **Grito — confirmed:** part of Remate, with no separate action.
-7. **Real places.** The canal's locks and bridges are named as real places.
-   Confirm that the studio is comfortable with that, without any canal
-   authority branding.
+7. **Real places — confirmed:** use real canal place names, without any
+   canal-authority branding. The current Gatún practice lock is a toy
+   interpretation, not a factual reconstruction. Geography and cultural
+   statements marked *(verify)* still require review.

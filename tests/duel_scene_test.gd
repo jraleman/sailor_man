@@ -5,6 +5,7 @@ extends SceneTree
 
 const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
+const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 
 ## A checked PCM queue substitutes only for the hardware, not the voice pipeline.
 class BufferedCapture extends Node:
@@ -69,6 +70,7 @@ func _run() -> void:
 	var hud := game.get_node("%DuelHud") as Control
 	_expect(spike.get("_capture") == null and AudioServer.bus_count == buses,
 		"Entering a duel must not request microphone access or create a capture bus.")
+	_test_canal_state(game, hud)
 	_test_remo_win(game, spike, hud)
 	await process_frame
 	_test_pause_and_guard(game, spike)
@@ -102,6 +104,11 @@ func _run() -> void:
 func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 	var duel: Duel = game.get("_duel")
 	_first_answer(game)
+	var view: Control = hud.get("lock")
+	var ribbon: Node3D = view.get("ribbon")
+	var rival: Dictionary = game.get("_rival")
+	_expect(ribbon.get("_profile") == rival["profile"],
+		"Rival presentation must retain its authored source profile, not a human fallback.")
 	var count := duel.records.size()
 	game.call("_on_repeat")
 	_tick(game, 3.73)
@@ -149,6 +156,11 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 		"Shell replay must reset the entire duel without reopening hardware.")
 	_expect(is_zero_approx(float(game.call("_round_length_seconds"))),
 		"Replay must reset elapsed duel time, not carry it into the next result.")
+	var canal: Control = hud.get("lock")
+	var world_ribbon: Node3D = canal.get("ribbon")
+	var points: PackedVector3Array = world_ribbon.get("points")
+	_expect(points.is_empty() and canal.get("_focus") == Vector3.ZERO,
+		"Replay must also clear the world contour and park its previous singer framing.")
 
 
 func _test_pause_and_guard(game: Node, spike: Control) -> void:
@@ -180,6 +192,12 @@ func _test_pause_and_guard(game: Node, spike: Control) -> void:
 		"The mic shortcut must not replace an admitted Remo turn.")
 	_send_key(KEY_SPACE)
 	_tick(game, 0.3)
+	var canal: Control = game.get_node("%DuelHud").get("lock")
+	var world_ribbon: Node3D = canal.get("ribbon")
+	var live_points: PackedVector3Array = world_ribbon.get("points")
+	_expect(live_points.size() == (spike.get("_track") as Array).size()
+		and canal.get("_track_singer") == Duel.Singer.PLAYER,
+		"The live world ribbon must use the admitted player track, not a rival or prediction.")
 	var count := duel.records.size()
 	game.call("open_pause_menu")
 	_expect(paused and duel.phase == Duel.Phase.PLAYER_READY
@@ -187,6 +205,9 @@ func _test_pause_and_guard(game: Node, spike: Control) -> void:
 		and not bool(spike.get("_remo_active"))
 		and not (game.get("_rival_tone") as AudioStreamPlayer).playing,
 		"Pause must discard a partial player turn while keeping the same answer and reference.")
+	_expect(world_ribbon.get("_frames") == reference
+		and canal.get("_track_singer") == Duel.Singer.RIVAL,
+		"Cancelling a partial take must restore the scored reference in the world too.")
 	pause = game.get("_pause_menu") as Node
 	if pause != null:
 		pause.call("resume")
@@ -330,6 +351,87 @@ func _test_practice_return(game: Node, spike: Control, hud: Control) -> void:
 		and duel.phase == Duel.Phase.READY,
 		"Returning from Practice must reset admission and all duel-local results.")
 	game.call("_on_source_requested", false)
+
+
+func _test_canal_state(game: Node, hud: Control) -> void:
+	var canal: Control = hud.get("lock")
+	var camera: Camera3D = canal.get("camera")
+	var chamber: Node3D = canal.get("chamber")
+	var water: MeshInstance3D = chamber.get("water")
+	var boats: Array = canal.get("boats")
+	var reduced := bool(game.get("_reduced_motion_enabled"))
+	var intense := bool(game.get("_intense_effects_enabled"))
+	game.call("_set_reduced_motion_enabled", false)
+	canal.call("present", 0.0, Duel.Singer.RIVAL)
+	canal.call("_process", 0.7)
+	var moving := camera.transform
+	game.call("_set_reduced_motion_enabled", true)
+	var parked := camera.transform
+	var camera_size := camera.size
+	_expect(not moving.is_equal_approx(parked) and not canal.is_processing(),
+		"Enabling reduced motion mid-ease must immediately park the two-shot and its clock.")
+	var low := water.position.y
+	canal.call("present", 1.0, Duel.Singer.PLAYER)
+	_expect(water.position.y > low and camera.transform.is_equal_approx(parked)
+		and is_equal_approx(camera.size, camera_size),
+		"Essential chamber water must rise without moving a reduced-motion camera.")
+	for index in boats.size():
+		var boat := boats[index] as Node3D
+		_expect(boat.rotation.is_zero_approx()
+			and is_equal_approx(boat.position.y - water.position.y, 0.26),
+			"Reduced-motion launches must stay level and afloat at the new chamber height.")
+		# The dummy renderer does not retain MultiMesh instance transforms.
+		if DisplayServer.get_name() == "headless":
+			continue
+		var lines := chamber.get_node("TowLines") as MultiMeshInstance3D
+		for end in 2:
+			var segment := index * 4 + end * 2
+			var a := lines.multimesh.get_instance_transform(segment)
+			var b := lines.multimesh.get_instance_transform(segment + 1)
+			var anchors: Array = chamber.get("tow_anchors")
+			var endpoint := boat.transform * Vector3(
+				-1.0 if index == 0 else 1.0, 0.32, -0.85 if end == 0 else 0.85)
+			_expect((a * (Vector3.DOWN * 0.5)).is_equal_approx(anchors[index * 2 + end])
+				and (b * (Vector3.UP * 0.5)).is_equal_approx(endpoint),
+				"Rotated tow lines must retain both actual endpoints as a launch rises.")
+	var ribbon: Node3D = canal.get("ribbon")
+	var track: Array[Dictionary] = []
+	for index in 70:
+		track.append(Frame.make(float(index) * Frame.STEP_SECONDS,
+			200.0 if index < 50 else 900.0, index < 20 or index >= 50, 0.2))
+	var original := track.duplicate(true)
+	ribbon.call("show_track", track, {}, 6.0, Frame.profile(), Vector3.ZERO, Vector3(6, 0, 0))
+	var mesh := ribbon.get_child(0) as MeshInstance3D
+	var quiet: PackedVector3Array = mesh.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var bridges_gap := false
+	for index in range(0, quiet.size(), 3):
+		var left := minf(quiet[index].x, minf(quiet[index + 1].x, quiet[index + 2].x))
+		var right := maxf(quiet[index].x, maxf(quiet[index + 1].x, quiet[index + 2].x))
+		bridges_gap = bridges_gap or (left < 0.35 and right > 0.35)
+	_expect(not bridges_gap and not quiet.is_empty(),
+		"The world contour must contain real geometry without joining silent gaps.")
+	var louder := track.duplicate(true)
+	for frame: Dictionary in louder:
+		frame["level"] = 1.0
+	ribbon.call("show_track", louder, {}, 6.0, Frame.profile(), Vector3.ZERO, Vector3(6, 0, 0))
+	_expect(quiet == mesh.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] and track == original,
+		"Extra amplitude must not widen or improve the contour, or mutate the source track.")
+	var lower := track.duplicate(true)
+	for frame: Dictionary in lower:
+		frame["cents"] = float(frame["cents"]) * 0.5
+	var profile := Frame.profile()
+	profile["falsetto_low"] = 350.0
+	profile["falsetto_high"] = 650.0
+	ribbon.call("show_track", lower, {"breaks": [{"t": 0.5, "to": 450.0}]},
+		6.0, profile, Vector3.ZERO, Vector3(6, 0, 0))
+	var decorated: PackedVector3Array = mesh.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	game.call("_set_intense_effects_enabled", false)
+	var plain: PackedVector3Array = mesh.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	_expect(quiet == plain and decorated.size() > plain.size(),
+		"Profile-relative pitch must match across singers; effects-off removes marks, not contour.")
+	canal.call("reset")
+	game.call("_set_reduced_motion_enabled", reduced)
+	game.call("_set_intense_effects_enabled", intense)
 
 
 func _test_layouts(game: Node, spike: Control, hud: Control) -> void:
