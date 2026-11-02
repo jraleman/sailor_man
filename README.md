@@ -1,8 +1,9 @@
 # Sailor Man
 
 A saloma call-and-response game in development. The current delivery is a
-**shared voice scorer with Remo controls and an opt-in microphone workbench**,
-not yet the canal campaign or a duel.
+**playable grey-box duel against one explicitly synthetic practice skiff**,
+using the shared voice scorer, Remo controls or an opt-in microphone. The
+finished canal campaign, recorded rival crews and hot seat are not implemented.
 
 ## Run the prototype
 
@@ -13,16 +14,54 @@ godot --headless --path . --import
 godot --path . -- --game=sailor_man
 ```
 
-Choose **Play** to open the workbench inside the real game shell. For the
-development-only workbench without the HUD:
+Choose **Play**, then **Start duel**. **Practice** opens the full scorer
+workbench; **Back to duel** starts a fresh duel. For the development-only
+workbench without the shell:
 
 ```powershell
 godot --path . res://games/sailor_man/tools/scorer_spike.tscn -- --game=sailor_man
 ```
 
-## Remo practice (no microphone)
+## The grey-box duel
 
-Choose **Start Remo call**, then draw a performance with these controls:
+The practice skiff calls tanda one. Review its numbered paddles, then
+**Continue**, optionally **Repeat call** once, and press **Ready**. A short
+2400 Hz cue and 250 ms guard precede **YA!** and the six-second listening
+window. Remo is the initial source and requires no microphone. Choose
+**Microphone** on a ready card to explicitly enable and room-check a device;
+after Ready, recording begins only when the guard finishes.
+Cue playback is explicitly stopped before admitting the scored input.
+
+Three neutral development judges prefer Quiebre, Aliento and Eco. Each
+multiplies that mark's weight by 1.5, renormalizes the same scorer's marks,
+and shows a 1-10 paddle with an evidence note. Calls omit Eco. The higher
+judge-point total wins a tanda; a tie goes to its answerer. The player calls
+tanda two. If a decider is needed, the loser of the closer tanda calls it;
+equal winning margins use the loser of tanda two.
+
+Win two tandas to finish. The four-minute chamber clock pauses inside scored
+performances; reviewing, getting ready and repeating consume between-turn
+time. Time expiring awards the rival the duel, not a lost life. The static
+3D lock's water follows this clock. **Results / Retry** opens the real shell
+results, with judge totals, tandas, best turn, breaks, longest breath and input
+source; replay clears duel-local scores, tracks and references.
+
+The window closes at six seconds, nine with Longer listening windows, or
+after 1.2 seconds of actual silence following voice. Audio buffered after
+that cutoff is excluded. Missing PCM is an error, never presumed silence.
+Pause, focus loss and failed capture discard a partial turn and retry the
+same call/answer with its earlier reference intact. Rival playback restarts
+the same turn after pause. Source selection is local to this scene, not a
+saved Auto/Microphone/Remo preference.
+
+The skiff's authored track and synthetic tone are development placeholders,
+not performer recordings. Turn gating and tail protection are implemented,
+but real room reverb, devices and permissions still need physical QA.
+
+## Remo controls and practice (no microphone)
+
+In a duel, press **Ready** and wait for **YA!**; in Practice, choose
+**Start Remo call**. Draw a performance with these controls:
 
 | Action | Keyboard | Gamepad | Touch |
 | --- | --- | --- | --- |
@@ -34,8 +73,10 @@ Choose **Start Remo call**, then draw a performance with these controls:
 The five Remo keys are rebindable under **Settings -> Controls**;
 the on-screen hints follow the current bindings. Arrows and gamepad controls
 are fixed extras. You can also hold/drag with the mouse and click Break or
-Remate. Touching the ribbon starts a window without first pressing Start.
-After a turn, a fresh Voice press starts another while the ribbon has focus.
+Remate. In Practice, touching the ribbon starts a window without first
+pressing Start, and a fresh Voice press starts another turn while it has focus.
+In a duel, only Ready and its cue can admit a new turn; input or fixtures
+outside that window cannot score.
 
 Remo emits the same consecutive 100 Hz frames and uses the same scorer,
 marks, evidence and kept-reference Eco as the microphone. Its virtual chest
@@ -88,6 +129,10 @@ the next Remo call, recording or example is an answer and can earn Eco.
   opt-in capture, device/error handling and a live pitch/reference ribbon.
 - Keyboard/gamepad and independent multitouch Remo sources on the same
   100 Hz track contract, with a synthetic pitch preview and no microphone access.
+- Deterministic best-of-three duel state, weighted judges, a beatable synthetic
+  rival, call repeats, chamber/turn clocks and guarded source admission.
+- Original primitive boats and lock in an isolated compatibility viewport,
+  numeric P1/CPU paddles, captions and responsive duel/input presentation.
 - Quiet Mode, six/nine-second windows and 50-150% sensitivity in the Game tab.
 - Shell discovery, pause, results and replay; scrolling layouts from phone to
   ultrawide, including enlarged UI; original prototype icon and walkthrough.
@@ -161,24 +206,37 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Five suites cover the pure scorer, low/high-register equivalence, synthesized
-PCM, Remo sources/parity, and the real workbench/shell:
+Seven suites cover the pure scorer, low/high-register equivalence, synthesized
+PCM, Remo sources/parity, duel/judge/rival rules and both real scene paths:
 
 ```powershell
 godot --headless --path . --script res://games/sailor_man/tests/saloma_scorer_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_normalisation_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_pipeline_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/remo_source_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/duel_state_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 ```
 
-The windowed scene run checks real rendering at 320x568, 568x320, 1280x720
+The windowed scene runs check real rendering at 320x568, 568x320, 1280x720
 and 2560x1080 with normal and 150% UI size. Tests do not enable a physical
 microphone. Buffered-PCM regressions distinguish absent data from actual
 silence, check stall recovery and resumed buffers, and verify that pause/error
 paths cannot score or retain unfinished calls. The microphone core was adapted
 from DeskCanSaw's Dead Metal Jam; Sailor Man has no runtime dependency on it.
+
+Duel regressions play a complete Remo win and a buffered-microphone loss to
+shell results, then replay. They exercise real key/pad/touch input, rebinding,
+out-of-turn/cue rejection, repeat, pause/focus cancellation, missing audio and
+the real-silence cutoff inside a buffered poll. They also check that replay
+resets elapsed time, pausing playback preserves it, and Practice restores
+usable Remo controls after microphone setup. Native checks project the
+complete boat meshes through the actual camera, verify an isolated 3D world
+and guard a nonempty render below 60 draw calls. Narrow listening layouts
+deliberately hide the arena to keep the ribbon and touch buttons usable.
 
 The pipeline suite also writes temporary, explicitly synthetic WAV fixtures
 in its isolated user profile and removes them afterward. It checks all
@@ -209,13 +267,14 @@ recordings or cultural partner are available yet. The five marks are a game's
 simplification, not a definition of the tradition. Do not treat synthetic
 scores as passing the real-recording milestone gate.
 
-The owner authorized Remo development under the assumption that real-voice
+The owner authorized Remo and grey-box duel work assuming that real-voice
 validation works. That assumption does not mark its unchecked gate complete.
-Full Soundcheck/profiles, rivals, tandas, the 3D canal, campaign and two-player
+Full Soundcheck/profiles, recorded rival crews, the finished 3D canal, campaign and two-player
 hot seat remain future work. See `DESIGN.md` and `TODO.md`.
 
-Re-record the labelled Remo walkthrough only when its visuals/captions change.
-It drives actual keyboard events through the scorer and Eco, never enabling
+Re-record the labelled duel walkthrough only when its visuals/captions change.
+It completes both tandas and reaches shell results with actual keyboard
+events through the scorer and judges, never enabling
 the microphone or substituting a prerecorded saloma:
 
 ```powershell

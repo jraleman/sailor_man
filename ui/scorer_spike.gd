@@ -6,6 +6,9 @@ extends Control
 signal score_ready(result: Dictionary)
 signal pause_requested
 signal finish_requested
+signal duel_requested
+signal duel_frames_ready(frames: Array[Dictionary])
+signal duel_turn_cancelled(reason: String)
 
 @export var standalone_tool := false
 
@@ -54,6 +57,11 @@ var _window := NORMAL_WINDOW
 var _quiet := false
 var _sensitivity := 1.0
 var _ui_unit := 0.0
+var _duel_mode := false
+var _duel_microphone := false
+var _duel_turn_open := false
+var _duel_observed_frames := 0
+var _duel_frame_limit := 0
 
 
 func _ready() -> void:
@@ -73,6 +81,7 @@ func _ready() -> void:
 	(%FlatExample as Button).pressed.connect(load_example.bind(false))
 	(%Pause as Button).pressed.connect(func() -> void: pause_requested.emit())
 	(%FinishSession as Button).pressed.connect(func() -> void: finish_requested.emit())
+	(%BackToDuel as Button).pressed.connect(func() -> void: duel_requested.emit())
 	(%Pause as Button).visible = not standalone_tool
 	(%FinishSession as Button).visible = not standalone_tool
 	for device: String in AudioServer.get_input_device_list():
@@ -83,6 +92,7 @@ func _ready() -> void:
 	if settings != null:
 		settings.connect("changed", _on_setting_changed)
 	get_viewport().size_changed.connect(_fit_ui)
+	resized.connect(_fit_ui)
 	Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	_reload_bindings()
 	_reload_options()
@@ -104,12 +114,13 @@ func _process(delta: float) -> void:
 	if _no_audio_seconds >= Capture.NO_INPUT_TIMEOUT:
 		var error := (
 			"No microphone audio arrived for %.0f seconds. Check the device and "
-			+ "microphone permission, then enable it again. Synthetic examples still work."
+			+ "microphone permission, then enable it again. Remo needs no microphone."
 		) % Capture.NO_INPUT_TIMEOUT
 		push_warning("Sailor Man recording: %s" % error)
 		_on_capture_failed(error)
 		return
 	_track.append_array(_source.push_frames(frames))
+	_publish_duel_frames()
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_status.text = "Listening: %.1f / %.0f s. Stop whenever comfortable." % [_elapsed, _window]
 	if _elapsed >= _window:
@@ -118,7 +129,10 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	var voice_pressed := _is_remo_voice_press(event)
-	if _recording or not is_visible_in_tree() or event.is_action_pressed(&"pause"):
+	if (
+		_recording or not is_visible_in_tree() or event.is_action_pressed(&"pause")
+		or (_duel_mode and not _duel_turn_open)
+	):
 		return
 	if not _remo_active:
 		if not _ribbon.has_focus() or not voice_pressed:
@@ -139,6 +153,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 ## Deliberately synthetic visual fixtures, never a stand-in for a cast rival.
 func load_example(shaped: bool) -> void:
+	if _duel_mode:
+		_status.text = "Synthetic examples belong to Practice, not a scored duel turn."
+		return
 	_cancel_recording()
 	_cancel_remo()
 	_profile = Frame.profile()
@@ -196,6 +213,66 @@ func reset_session() -> void:
 	_update_controls()
 
 
+## The duel reuses this input path, but only its model may open a scored window.
+func configure_duel(enabled: bool, microphone := false) -> void:
+	stop_capture()
+	_duel_mode = enabled
+	_duel_microphone = microphone
+	_duel_turn_open = false
+	set_process(not enabled)
+	_ui_unit = 0.0
+	_update_controls()
+	_fit_ui()
+
+
+## Room checks stay explicit; neither source selection nor a cue opens a device.
+func microphone_ready() -> bool:
+	return _capture != null and bool(_capture.call("is_ready"))
+
+
+## Discard idle audio at the real cue and preserve only this tanda's call.
+func begin_duel_turn(reference: Array[Dictionary]) -> bool:
+	assert(_duel_mode)
+	if _duel_microphone and not microphone_ready():
+		_status.text = "Enable the microphone and finish its room check, or use Remo."
+		_duel_fail(_status.text)
+		return false
+	_reference = reference.duplicate(true)
+	_duel_observed_frames = 0
+	_duel_frame_limit = roundi(_window * Frame.RATE_HZ)
+	_duel_turn_open = true
+	if _duel_microphone:
+		_toggle_recording()
+	else:
+		_start_remo()
+	var started := _recording or _remo_active
+	if not started:
+		_duel_fail(_status.text)
+	return started
+
+
+## One owner advances input and the duel clock in the same frame.
+func advance_duel_input(delta: float) -> void:
+	assert(_duel_mode)
+	_process(delta)
+
+
+## Early silence and model deadlines finish through the existing buffered Stop path.
+func finish_duel_turn() -> void:
+	if _recording:
+		_finish_recording()
+	elif _remo_active:
+		_finish_remo()
+
+
+## A buffered poll must not score samples after the model's real-silence cutoff.
+func limit_duel_turn(frame_count: int) -> void:
+	assert(_duel_mode and frame_count >= 0)
+	_duel_frame_limit = mini(_duel_frame_limit, frame_count)
+	if _track.size() > _duel_frame_limit:
+		_track.resize(_duel_frame_limit)
+
+
 ## Explicitly release both input paths and the tone on pause, results or exit.
 func stop_capture() -> void:
 	_cancel_recording()
@@ -215,7 +292,7 @@ func _toggle_microphone() -> void:
 		stop_capture()
 		return
 	if _device.item_count == 0:
-		_status.text = "No input device is available. The synthetic examples still work."
+		_status.text = "No input device is available. Remo needs no microphone."
 		_update_controls()
 		return
 	_capture = Capture.new()
@@ -233,15 +310,24 @@ func _on_calibrated(noise_floor: float) -> void:
 		"Room check complete. Set a comfortable chest reference, then Record. "
 		+ "This is not yet a full vocal-range calibration."
 	)
+	if _duel_mode:
+		_status.text = (
+			"Room check complete. Set a comfortable chest reference, then press Ready "
+			+ "for your turn. This is not a full vocal-range calibration."
+		)
 	_update_controls()
 
 
 func _on_capture_failed(reason: String) -> void:
 	stop_capture()
 	_status.text = reason
+	_duel_fail(reason)
 
 
 func _toggle_recording() -> void:
+	if _duel_mode and (not _duel_turn_open or not _duel_microphone):
+		_status.text = "Recording is available only in an admitted Microphone turn."
+		return
 	_cancel_remo()
 	if _recording:
 		_finish_recording()
@@ -277,6 +363,7 @@ func _finish_recording() -> void:
 		var frames: PackedVector2Array = _capture.call("poll")
 		_track.append_array(_source.push_frames(frames))
 	_track.append_array(_source.finish())
+	_publish_duel_frames()
 	_recording = false
 	if _track.is_empty():
 		var error := (
@@ -288,6 +375,7 @@ func _finish_recording() -> void:
 		_marks.text = "No call scored."
 		push_warning("Sailor Man recording: %s" % error)
 		_update_controls()
+		_duel_fail(error)
 		return
 	if not _judge():
 		return
@@ -305,6 +393,7 @@ func _cancel_recording() -> void:
 		_last_result.clear()
 		_marks.text = "Call cancelled. No score recorded."
 		_ribbon.call("show_tracks", _track, _reference, {}, _window)
+		_duel_fail("Microphone turn cancelled. Ready again to retry the same turn.")
 	_recording = false
 	_elapsed = 0.0
 	_no_audio_seconds = 0.0
@@ -318,6 +407,9 @@ func _toggle_remo() -> void:
 
 
 func _start_remo() -> void:
+	if _duel_mode and (not _duel_turn_open or _duel_microphone):
+		_status.text = "Remo is available only in an admitted Remo turn."
+		return
 	stop_capture()
 	_profile = RemoSource.profile()
 	_track.clear()
@@ -328,15 +420,19 @@ func _start_remo() -> void:
 	_marks.text = "Remo listening. Hold Voice, shape the pitch, then finish."
 	_status.text = "Remo uses buttons or touch, not your microphone. Preview: synthetic tone."
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
-	_ribbon.grab_focus()
+	if _duel_mode:
+		_ribbon.grab_focus.call_deferred()
+	else:
+		_ribbon.grab_focus()
 	_update_controls()
-	(%Scroll as ScrollContainer).ensure_control_visible.call_deferred(_ribbon)
+	(%Scroll as ScrollContainer).ensure_control_visible.call_deferred(%RemoPanel)
 
 
 func _process_remo(delta: float) -> void:
 	var step := minf(delta, maxf(_window - _elapsed, 0.0))
 	var frames := _remo.advance(step)
 	_track.append_array(frames)
+	_publish_duel_frames()
 	_elapsed += step
 	if not frames.is_empty():
 		_remo_tone.play_frame(frames[-1])
@@ -358,6 +454,7 @@ func _finish_remo() -> void:
 		_status.text = "No Remo frames captured. Start a call and hold Voice or the ribbon."
 		_marks.text = "No call scored."
 		_update_controls()
+		_duel_fail(_status.text)
 		return
 	if _judge():
 		_status.text = "Remo scored by the shared saloma scorer. Keep it as a reference to test Eco."
@@ -369,6 +466,7 @@ func _cancel_remo() -> void:
 		_last_result.clear()
 		_marks.text = "Remo call cancelled. No score recorded."
 		_ribbon.call("show_tracks", _track, _reference, {}, _window)
+		_duel_fail("Remo turn cancelled. Ready again to retry the same turn.")
 	_remo_active = false
 	_remo.finish()
 	if is_instance_valid(_remo_tone):
@@ -443,6 +541,7 @@ func _judge() -> bool:
 		_status.text = str(_last_result["error"])
 		_marks.text = "No call scored."
 		_update_controls()
+		_duel_fail(_status.text)
 		return false
 	var lines := PackedStringArray()
 	lines.append("%s: %.1f / 100" % [
@@ -465,6 +564,7 @@ func _judge() -> bool:
 	_marks.text = "\n".join(lines)
 	_ribbon.call("show_tracks", _track, _reference, evidence, _window)
 	print("Sailor Man scorer: %s" % JSON.stringify(_last_result))
+	_duel_turn_open = false
 	score_ready.emit(_last_result)
 	_update_controls()
 	return true
@@ -507,6 +607,11 @@ func _fit_ui() -> void:
 	var preference := float(settings.call("get_value", "ui/scale", 1.0)) if settings != null else 1.0
 	(%Profile as GridContainer).columns = 1 if float(get_window().size.x) / preference < 480.0 else 2
 	var unit := preference / maxf(transform.get_scale().x, 0.001)
+	var ribbon_height := 180.0 * preference
+	if _duel_mode:
+		var available := size.y * transform.get_scale().y - 58.0 * preference
+		ribbon_height = maxf(80.0 * preference, minf(ribbon_height, available))
+	_ribbon.custom_minimum_size.y = ribbon_height / maxf(transform.get_scale().y, 0.001)
 	if is_equal_approx(unit, _ui_unit):
 		return
 	_ui_unit = unit
@@ -521,16 +626,16 @@ func _fit_ui() -> void:
 			control.add_theme_constant_override("v_separation", roundi(8.0 * unit))
 	(%Title as Label).add_theme_font_size_override("font_size", roundi(22.0 * unit))
 	(%Content as VBoxContainer).add_theme_constant_override("separation", roundi(10.0 * unit))
+	(%RemoPanel as VBoxContainer).add_theme_constant_override(
+		"separation", roundi((6.0 if _duel_mode else 10.0) * unit))
 	(%Profile as GridContainer).add_theme_constant_override("h_separation", roundi(12.0 * unit))
 	(%Profile as GridContainer).add_theme_constant_override("v_separation", roundi(8.0 * unit))
-	Responsive.set_margins(
-		%Margins, roundi(16.0 * unit), roundi(16.0 * unit),
-		roundi(16.0 * unit), roundi(16.0 * unit)
-	)
+	var margin := (4.0 if _duel_mode else 16.0) * unit
+	Responsive.set_margins(%Margins, roundi(margin), roundi(margin),
+		roundi(margin), roundi(margin))
 	for spin: SpinBox in [_chest, _carry]:
 		spin.custom_minimum_size = Vector2(110.0, 44.0) * unit
 		spin.get_line_edit().add_theme_font_size_override("font_size", roundi(17.0 * unit))
-	_ribbon.custom_minimum_size.y = 180.0 * unit
 	_ribbon.call("fit", unit)
 
 
@@ -547,9 +652,54 @@ func _update_controls() -> void:
 	_chest.editable = not _recording and not _remo_active
 	_carry.editable = not _recording and not _remo_active
 	(%StartRemo as Button).text = "Stop Remo" if _remo_active else "Start Remo call"
+	(%StartRemo as Button).disabled = _duel_mode and not _duel_turn_open
 	(%RemoBreak as Button).disabled = not _remo_active
 	(%RemoFinish as Button).disabled = not _remo_active
 	_ribbon.set("enabled", not _recording)
+	(%BackToDuel as Button).visible = not standalone_tool and not _duel_mode
+	if _duel_mode:
+		_record.disabled = _record.disabled or not _duel_turn_open
+		_ribbon.set("enabled", _duel_turn_open and not _duel_microphone)
+	_update_duel_presentation()
+
+
+func _update_duel_presentation() -> void:
+	for child: Control in (%Content as VBoxContainer).get_children():
+		var shown := not _duel_mode
+		if _duel_mode:
+			match child.name:
+				"DeviceTitle", "InputDevice", "Profile", "Status":
+					shown = _duel_microphone and not _duel_turn_open
+				"Actions":
+					shown = _duel_microphone
+				"RemoPanel":
+					shown = true
+		child.visible = shown
+	_enable.visible = not _duel_mode or not _duel_turn_open
+	_record.visible = not _duel_mode or _duel_turn_open
+	(%StartRemo as Button).visible = not _duel_mode
+	((%RemoBreak as Button).get_parent() as Control).visible = (
+		not _duel_mode or not _duel_microphone
+	)
+
+
+func _publish_duel_frames() -> void:
+	if not _duel_mode:
+		return
+	var maximum := mini(roundi(_window * Frame.RATE_HZ), _duel_frame_limit)
+	if _track.size() > maximum:
+		_track.resize(maximum)
+	var frames := _track.slice(mini(_duel_observed_frames, _track.size()))
+	_duel_observed_frames = _track.size()
+	if not frames.is_empty():
+		duel_frames_ready.emit(frames)
+
+
+func _duel_fail(reason: String) -> void:
+	if _duel_mode:
+		_duel_turn_open = false
+		duel_turn_cancelled.emit(reason)
+		_update_controls()
 
 
 func _exit_tree() -> void:

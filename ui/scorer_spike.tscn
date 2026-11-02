@@ -61,6 +61,13 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Finish session"
 
+[node name="BackToDuel" type="Button" parent="Margins/Scroll/Content/Utility"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "Back to duel"
+
 [node name="OptionsLabel" type="Label" parent="Margins/Scroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -153,17 +160,21 @@ unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="RemoActions" type="HFlowContainer" parent="Margins/Scroll/Content"]
+[node name="RemoPanel" type="VBoxContainer" parent="Margins/Scroll/Content"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="StartRemo" type="Button" parent="Margins/Scroll/Content/RemoActions"]
+[node name="RemoActions" type="HFlowContainer" parent="Margins/Scroll/Content/RemoPanel"]
+layout_mode = 2
+
+[node name="StartRemo" type="Button" parent="Margins/Scroll/Content/RemoPanel/RemoActions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = "Start Remo call"
 tooltip_text = "Opens a button/touch listening window and disconnects the microphone."
 
-[node name="RemoBreak" type="Button" parent="Margins/Scroll/Content/RemoActions"]
+[node name="RemoBreak" type="Button" parent="Margins/Scroll/Content/RemoPanel/RemoActions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
@@ -172,7 +183,7 @@ text = "Break"
 accessibility_name = "Remo Quiebre"
 tooltip_text = "Switch registers while holding Voice or the ribbon."
 
-[node name="RemoFinish" type="Button" parent="Margins/Scroll/Content/RemoActions"]
+[node name="RemoFinish" type="Button" parent="Margins/Scroll/Content/RemoPanel/RemoActions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
@@ -181,7 +192,7 @@ text = "Remate"
 accessibility_name = "Finish Remo call"
 tooltip_text = "Release the virtual voice and score this call."
 
-[node name="VoiceRibbon" type="Control" parent="Margins/Scroll/Content"]
+[node name="VoiceRibbon" type="Control" parent="Margins/Scroll/Content/RemoPanel"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2

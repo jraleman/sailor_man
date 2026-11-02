@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Discoverable development scaffold; it does not pretend the voyage is playable.
+## A playable grey-box duel, without advertising the unfinished canal voyage.
 
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 
@@ -10,7 +10,7 @@ static func manifest() -> GameManifest:
 	var game := GameManifest.new()
 	game.id = Options.GAME_ID
 	game.title = "Sailor Man"
-	game.tagline = "Voice / Remo scorer prototype - the voyage is still in development."
+	game.tagline = "A voice / Remo duel against a synthetic practice skiff."
 	game.menu_order = 10
 	game.gameplay_scene_path = "res://games/sailor_man/gameplay.tscn"
 	game.control_style = GameManifest.CONTROL_STYLE_CUSTOM_KEYS
@@ -23,26 +23,29 @@ static func manifest() -> GameManifest:
 	game.tutorial_video_path = "res://games/sailor_man/assets/video/tutorial.ogv"
 	game.tutorial_poster_path = "res://games/sailor_man/assets/video/tutorial_poster.webp"
 	game.copy = {
-		"instructions_headline": "Try the shared saloma scorer",
+		"instructions_headline": "Win two tandas against the practice skiff",
 		"instructions_rules": (
-			"Development prototype, not a duel. Start a Remo call and draw with "
-			+ "buttons or touch, without a microphone. Or explicitly enable a mic, "
-			+ "finish the room check and record a comfortable call. Extra volume "
-			+ "earns nothing. Remo previews use a labelled synthetic tone."
+			"Grey-box prototype with one explicitly synthetic rival, not a recorded "
+			+ "salomero. Listen to its call, press Ready and wait for YA! "
+			+ "Answer with Remo or an explicitly enabled microphone. The player calls "
+			+ "tanda two. Win two tandas; ties go to the answerer. The chamber clock "
+			+ "pauses inside performances. Retry costs no lives."
 		),
 		"instructions_solo_summary": (
-			"Compare Aliento, Quiebre, Altura and Remate. Keep a call as a "
-			+ "reference to test Eco on your next answer. These marks are a game "
-			+ "simplification; authentic-voice validation is still pending."
+			"Three judges prefer Quiebre, Aliento and Eco, with numbered paddles. "
+			+ "Calls omit Eco. Repeat the rival's call once before answering. "
+			+ "Use a comfortable voice; extra volume earns nothing. Marks are a game "
+			+ "simplification, not cultural validation. Practice opens the full scorer."
 		),
 		"instructions_player_one_controls": (
-			"Start Remo, hold Voice, glide pitch, then Quiebre or Remate. "
-			+ "Gamepad and touch also work. Record is for the opt-in microphone."
+			"After Ready and YA!, hold Voice, glide pitch, then Quiebre or Remate. "
+			+ "Pad: A/RT, left stick, X/RB, B. Touch: hold/drag the ribbon, "
+			+ "flick up or use Break, flick down to finish. Mic starts off."
 		),
 		"player_one_control_description": (
 			"Remo: hold Voice, shape pitch, Break and Finish. Record uses the opt-in mic."
 		),
-		"single_player_description": "Explore the scorer and pitch ribbon; no rivals yet.",
+		"single_player_description": "Best-of-three duel against one synthetic practice skiff.",
 	}
 	var theme := GameTheme.new()
 	theme.logo_texture_path = "res://games/sailor_man/assets/game-icon.svg"
@@ -57,7 +60,7 @@ static func manifest() -> GameManifest:
 		{
 			"heading": "Development status",
 			"lines": [
-				"Synthetic pitch tracks are test fixtures, not saloma recordings.",
+				"Practice skiff and Remo use synthetic tones, not saloma recordings.",
 				"Performer recordings and cultural review are still pending.",
 			],
 		},

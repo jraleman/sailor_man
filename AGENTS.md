@@ -1,19 +1,22 @@
 # Sailor Man
 
 Read the root `AGENTS.md`, then `DESIGN.md` and `TODO.md`. The design describes
-the target game; the current implementation is its microphone/Remo scorer
-workbench. Do not advertise a playable voyage or opponents.
+the target game; the current implementation is a grey-box duel against one
+synthetic practice skiff, plus the microphone/Remo scorer workbench. Do not
+advertise a finished voyage or recorded salomero opponents.
 
 ## Current scope
 
 - The owner confirmed **Sailor Man**, English-first copy with Spanish saloma
   terms, two-human hot seat in v1, and grito as part of Remate.
-- The manifest currently enables solo only. Campaign, rivals, saved
+- The manifest currently enables one solo duel mode. The game owns its
+  placeholder rival; it does not offer a second generic vs-CPU setup mode.
+  Campaign, production rival crews, saved
   calibration, hot seat, store and gallery are not implemented.
 - No performer recordings or cultural partner are available yet. Synthetic
   fixtures prove algorithm behavior, not authentic saloma quality. The real
   recording comparison in DESIGN Milestone 1 remains unverified. The owner
-  explicitly authorized Remo development assuming that validation works;
+  explicitly authorized Remo and grey-box duel work assuming validation works;
   that is not evidence to check off the authentic-recording gate.
 - The SVG icon and walkthrough are prototype presentation assets required by
   the framework's catalog-wide tests, not finished game art.
@@ -44,6 +47,10 @@ workbench. Do not advertise a playable voyage or opponents.
   register drop with a falling Remate.
 - The detector/capture were adapted locally from Dead Metal Jam. Do not add
   runtime imports from another game or game-name branches to the framework.
+- `duel/duel_state.gd` alone owns tandas, leads, ties, clocks and the winner.
+  Equal winning margins give the decider call to the loser of tanda two.
+  `judges.gd` reweights the scorer's marks; `rival_book.gd` uses that same
+  scorer. The synthetic rival must remain beatable through actual Remo input.
 
 ## Microphone and UI
 
@@ -69,10 +76,23 @@ workbench. Do not advertise a playable voyage or opponents.
   a call aborts capture; cancelled tracks cannot become references, and a
   previously scored reference survives pause/failure.
 - `ui/scorer_spike.gd` is shared by the shell and dev-only scene.
+  In a duel, its automatic processing is disabled; `gameplay.gd` advances it
+  once per frame and admits frames only after the 250 ms guard. Keep the
+  model's frame limit: a buffered poll may contain audio after the 1.2-second
+  real-silence cutoff. Never let a practice fixture submit a duel score.
+  Pause/failure retries the same turn; a repeat is playback, not a scored turn.
+  Keep the ribbon and Break controls together in `%RemoPanel`.
+  Restore both visibility and enabled state when returning to full Practice.
   Scale fonts/targets against the real canvas transform, not only logical
   viewport bounds. Check portrait, short landscape, ultrawide and 150% UI size.
+- `world/greybox_lock.gd` owns the static isolated compatibility viewport.
+  Water follows the chamber clock; no ambient movement is necessary. Narrow
+  listening layouts deliberately prioritize the input ribbon over the arena.
 - Preserve `GameShell` pause/results/replay and call `super(value)` in both
   accessibility overrides. Keep `gl_compatibility`.
+  Duel stats use the shell's `details` entries, not renamed hits/streaks.
+  Elapsed duel time survives pause and resets on replay; do not confuse it
+  with the chamber's between-turn clock.
 
 ## Offline recordings
 
@@ -100,11 +120,14 @@ godot --headless --path . --script res://games/sailor_man/tests/saloma_scorer_te
 godot --headless --path . --script res://games/sailor_man/tests/voice_normalisation_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_pipeline_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/remo_source_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/duel_state_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 ```
 
-The last run verifies actual rendered layouts; it also accepts
+The two windowed runs verify actual rendered layouts; they also accept
 `--sailor-capture-dir=<absolute directory>` after `--`. Use isolated user data
 for integration runs. On Windows, use the console executable or
 `Start-Process -Wait -PassThru` and check `ExitCode`; a direct GUI-executable
@@ -116,6 +139,10 @@ offline command exit codes/JSON. Remo's scene checks route simulated key/pad/
 multitouch events through the actual viewport, including pause/resume. Pin a
 usable window size and UI scale before coordinate-based input checks, even
 headlessly, and resume the real pause menu rather than only freeing it.
+Native duel checks include full boat-mesh framing, an isolated 3D world,
+a nonempty render below 60 draw calls and all eight size/UI-scale combinations.
+Keep the duel suite's audio-mixer cleanup wait: stopping playback is queued,
+and two fast headless process frames alone do not release it before shutdown.
 These do not verify physical devices, OS permissions, acoustic output or real
 singers. Use `--audio-driver Dummy` for automated runs. Run all 15 framework
 suites with `--game=all` after integration changes. Keep `README.md` and

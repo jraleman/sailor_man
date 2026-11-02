@@ -21,13 +21,15 @@
 | Look-and-feel reference | `games/chicken_pit/` (3D world in a `SubViewport` under the 2D shell) |
 | Renderer | `gl_compatibility` — unchanged |
 
-**Current delivery:** scaffolding, tested scoring, an opt-in microphone spike
-and Remo practice. The source manifest exposes only that solo
-workbench, not the target campaign or multiplayer described below. English-first
+**Current delivery:** a complete grey-box best-of-three duel against one
+explicitly synthetic practice skiff, with judges, an isolated 3D lock,
+opt-in microphone input and Remo. Practice retains the full scorer workbench.
+The source manifest exposes this single-player prototype, not the target
+campaign or multiplayer described below. English-first
 copy keeps Spanish saloma terms; v1 hot seat is two humans, and grito stays
 within Remate. No performer recordings or cultural partner are available yet,
 so Milestone 1's authentic-recording exit remains unverified. The owner
-authorized continuing with Remo under the assumption that validation works,
+authorized continuing with Remo and the grey-box duel assuming validation works,
 not as a claim that recordings or review were completed. See `README.md` for
 what actually runs and `TODO.md` for verified progress.
 
@@ -135,6 +137,8 @@ The lead alternates: the rival calls in tanda 1, you call in tanda 2, and in
 tanda 3 the singer who **lost the closer tanda** leads. Answering is easier to
 judge but harder to win. Calling is free but cannot earn Eco. That asymmetry
 is the strategic heart of contrapunto.
+Closeness is the absolute judge-point margin; when both margins are equal,
+the loser of tanda 2 leads the decider *(confirmed by the owner)*.
 
 Each turn is a **listening window** of 6 s *(tune)* that opens on a visible and
 audible cue, the conch-shell **¡Ya!**. The window closes early after 1.2 s of

@@ -183,27 +183,77 @@ the process exited 0. This shared-audio cleanup issue was not changed here.
 
 ## Milestone 3 — Duel in a grey box (§3)
 
-- [ ] `duel/duel_state.gd` — tandas, call/answer, lead alternation, decider
+- [x] `duel/duel_state.gd` — tandas, call/answer, lead alternation, decider
       leader, tie to the answerer, best of three, retry, listening window
       (6 s / 9 s long, 1.2 s silence close), chamber clock that pauses inside
       windows.
-- [ ] `duel/judges.gd` — 3 or 5 judges, tastes (§6.3), 1–10 paddles, notes
+- [x] `duel/judges.gd` — 3 or 5 judges, tastes (§6.3), 1–10 paddles, notes
       from scorer evidence.
-- [ ] `duel/rival_book.gd` — data shape for rivals, takes and difficulty bands;
+- [x] `duel/rival_book.gd` — data shape for rivals, takes and difficulty bands;
       one placeholder rival with a synthetic track.
-- [ ] Bleed defences (§4.3): turn gating, 250 ms tail guard, cue pitched
+- [x] Bleed defences (§4.3): turn gating, 250 ms tail guard, cue pitched
       outside the scored band.
-- [ ] `ui/duel_hud.gd` — turn banner, ¡Ya! cue, window timer, paddles with numbers,
+- [x] `ui/duel_hud.gd` — turn banner, ¡Ya! cue, window timer, paddles with numbers,
       judge cards with text and an icon, Repeat call.
-- [ ] `gameplay.gd` hooks (§7.3): one shell round = one duel for now; route
+- [x] `gameplay.gd` hooks (§7.3): one shell round = one duel for now; route
       frames from the active source to the scorer, then the shell's end-of-round path.
-- [ ] `_round_totals`, `_player_stats`, `_describe_round_outcome`,
+- [x] `_round_totals`, `_player_stats`, `_describe_round_outcome`,
       `_round_highlight_summary`.
-- [ ] Grey-box lock: two boxes for boats, water plane, walls.
-- [ ] Captions: rival call shape in words, ¡Ya!, verdicts (§9.5).
-- [ ] `tests/duel_state_test.gd`, `tests/sailor_scene_test.gd` (first pass).
-- [ ] **Exit:** a full duel against the placeholder rival, by mic and by Remo,
-      to the results panel. Framework suites green.
+- [x] Grey-box lock: two boxes for boats, water plane, walls.
+- [x] Captions: rival call shape in words, ¡Ya!, verdicts (§9.5).
+- [x] `tests/duel_state_test.gd`, `tests/duel_scene_test.gd` and the preserved
+      `tests/sailor_scene_test.gd` practice path.
+- [x] **Exit:** full duels against the placeholder rival by Remo and the
+      buffered-PCM microphone path reach shell results; framework suites green.
+      Physical-device QA remains open under the owner's real-voice assumption.
+
+The owner approved continuing this milestone under the existing real-voice
+assumption, not as evidence to check off Milestone 1. The owner resolved equal
+winning margins in the decider rule: the loser of tanda two calls.
+
+The first rival is the **Practice skiff**, an explicitly synthetic 3.6-second
+call with two register breaks and a 120 ms finish. Its real scorer/judge band
+and a reachable Remo win are tested; a short flat microphone take loses.
+The single-player mode owns this rival instead of offering a duplicate generic
+vs-CPU setup. No production crew, recorded voice or hot-seat mode is implied.
+The 2400 Hz, 60 ms cue has a full 250 ms guard before capture admission.
+The chamber's four-minute budget counts between turns, including a Repeat.
+Buffered audio after the 1.2-second real-silence cutoff cannot enter the score.
+
+Both source routes reach shell results in automated integration checks:
+actual Remo viewport input and buffered PCM through the existing microphone
+pipeline. The latter does not open or validate a physical microphone.
+Named Soundcheck profiles, saved source selection and measured room-tail
+protection remain later work.
+
+**Final automated validation (Godot 4.7.2, Windows):** all seven game suites
+and all 15 framework suites exited 0 with Dummy audio and isolated profiles;
+none had script errors. Both scene suites passed real OpenGL layouts at
+320x568, 568x320, 1280x720 and 2560x1080 with normal/150% UI. The duel suite
+also checks actual boat-mesh corners, isolated worlds and a nonempty render
+below 60 draw calls. Actual viewport keyboard, gamepad and independent touch
+events exercise the admitted sources, not fabricated scores.
+
+Focused regressions caught and now prevent stale hidden/disabled Remo controls
+after microphone setup, elapsed time surviving replay or being erased by
+pausing a rival, and cue playback remaining active as listening opens.
+The cue is explicitly stopped before admission. The duel test also allows
+the asynchronous audio mixer to release stopped playback before quitting;
+its final headless and native runs had no engine errors.
+
+The 32-second walkthrough completes a real 2-0 Remo duel and enters shell
+results: its answer scores **87.0470/100** (Eco **0.621341**), and its call
+**91.2670/100**, each with three breaks and Remate. The clip was recorded
+natively, validated, encoded to silent 960x540/30 fps Theora, fully decoded
+and reimported with a new 640x360 WebP poster. These are synthetic controls,
+not performer recordings or microphone QA.
+
+The preserved practice and pre-existing lives/single-game suites still log
+intermittent shutdown-resource diagnostics despite passing. Verbose walkthrough
+tracing identified shared `ui_click.wav`/`ui_focus.wav` playback, not recorded
+voices; earlier practice tracing identified `ui_back.wav`. Those framework
+diagnostics were not broadly changed here. The Saves suite's malformed-backup
+parse errors are deliberate negative cases.
 
 ## Milestone 4 — Calibration (§4.2, §4.6, §4.7)
 

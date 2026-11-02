@@ -39,7 +39,7 @@ func _run() -> void:
 	var manifest := Manifest.manifest()
 	_expect(
 		not manifest.supports_multiplayer and not manifest.supports_cpu_opponent,
-		"The scaffold must not advertise unimplemented opponents."
+		"The prototype must not advertise unimplemented multiplayer setup modes."
 	)
 	_expect(not manifest.uses_shell_round_rules, "A scorer session must not expire on the shell clock.")
 	GameCatalog.select(manifest.id)
@@ -66,6 +66,7 @@ func _run() -> void:
 	get_root().add_child(game)
 	await process_frame
 	await process_frame
+	game.call("_open_practice")
 	var spike := game.get_node("%ScorerSpike") as Control
 	_expect(spike.get("_capture") == null, "Opening the game must not request microphone access.")
 	_expect(AudioServer.bus_count == buses, "Opening the spike must not create a capture bus.")
@@ -281,7 +282,7 @@ func _test_remo_touch(game: Node, spike: Control) -> void:
 		await process_frame
 	var ribbon := spike.get_node("%VoiceRibbon") as Control
 	var scroll := spike.get_node("%Scroll") as ScrollContainer
-	scroll.ensure_control_visible(ribbon)
+	scroll.ensure_control_visible(spike.get_node("%RemoPanel") as Control)
 	for _frame in 6:
 		await process_frame
 	var capture := BufferedCapture.new()
@@ -310,7 +311,12 @@ func _test_remo_touch(game: Node, spike: Control) -> void:
 	_expect(
 		bool(source.call("has_contact", 4)) and bool(source.call("is_voiced"))
 		and is_equal_approx(float(source.get("pitch_cents")), 700.0),
-		"A second actual touch must operate Break without releasing the ribbon finger."
+		"A second actual touch must operate Break without releasing the ribbon finger. "
+		+ "break=%s hit=%s ribbon=%s pitch=%s voiced=%s scroll=%s spike=%s" % [
+			break_button.get_global_rect(), ribbon.call("_hit", break_button, break_position),
+			ribbon.get_global_rect(), source.get("pitch_cents"), source.call("is_voiced"),
+			scroll.get_global_rect(), spike.get_global_rect(),
+		]
 	)
 	var drag := InputEventScreenDrag.new()
 	drag.index = 4

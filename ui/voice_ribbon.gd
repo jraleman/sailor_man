@@ -43,13 +43,21 @@ func show_tracks(
 func _draw() -> void:
 	draw_style_box(_background(), Rect2(Vector2.ZERO, size))
 	var font := get_theme_default_font()
+	var font_size := roundi(12.0 * _unit)
 	var padding := PADDING * _unit
+	var stagger := _point(0.0, 700.0).y - _point(0.0, 1300.0).y \
+		< font.get_height(font_size) + 2.0 * _unit
 	for cents in [0.0, 700.0, 1300.0]:
 		var y := _point(0.0, cents).y
 		draw_line(Vector2(padding, y), Vector2(size.x - padding, y), GUIDE, _unit)
+		var label := "%d cents" % cents
+		var x := padding + 4.0 * _unit
+		if stagger and cents == 700.0:
+			x = size.x - padding - 4.0 * _unit \
+				- font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 		draw_string(
-			font, Vector2(padding + 4.0 * _unit, y - 3.0 * _unit),
-			"%d cents" % cents, 0, -1, roundi(12.0 * _unit), CREAM
+			font, Vector2(x, y - 3.0 * _unit),
+			label, 0, -1, font_size, CREAM
 		)
 	_draw_track(_reference, true)
 	_draw_track(_frames, false)
