@@ -3,17 +3,19 @@
 Read the root `AGENTS.md`, then `DESIGN.md` and `TODO.md`. The design describes
 the target game; the current implementation has five free toy-canal practice
 arenas against one synthetic skiff, an optional Culebra self-echo challenge and
-the microphone/Remo scorer workbench. Do not advertise a finished voyage or
-recorded salomero opponents.
+two-human hot seat, plus the microphone/Remo scorer workbench. Do not advertise
+a finished voyage or recorded salomero opponents.
 
 ## Current scope
 
 - The owner confirmed **Sailor Man**, English-first copy with Spanish saloma
   terms, two-human hot seat in v1, and grito as part of Remate.
-- The manifest currently enables one solo duel mode. The game owns its
-  placeholder rival; it does not offer a second generic vs-CPU setup mode.
+- The manifest enables solo practice and two-human hot seat through shared setup.
+  It declares `supports_multiplayer` and `local_multiplayer_turns`, with two seats.
+  The game owns its placeholder rival; it does not offer a second generic
+  vs-CPU setup mode.
   Soundcheck and named calibration profiles are implemented. Campaign,
-  production rival crews, hot seat, store and gallery are not implemented.
+  production rival crews, store and gallery are not implemented.
 - Real canal place names are owner-approved without authority branding.
   Gatún, the lake, Culebra, Pedro Miguel and Pacific have original toy scenery.
   The owner chose freely selectable practice through the existing level selector,
@@ -21,6 +23,8 @@ recorded salomero opponents.
   The owner chose a separate Culebra self-echo challenge: a fresh unscored
   seed, then best-of-three against that fixed snapshot. It is not a voyage
   boss encounter or live microphone monitoring.
+  Hot seat has all five practice arenas from the start and no chamber timeout;
+  campaign-aware hot-seat access is still undecided.
   Plain crew/spectators imply no traditional dress or reviewed cultural assets.
 - No performer recordings or cultural partner are available yet. Synthetic
   fixtures prove algorithm behavior, not authentic saloma quality. The real
@@ -60,6 +64,15 @@ recorded salomero opponents.
   Equal winning margins give the decider call to the loser of tanda two.
   `judges.gd` reweights the scorer's marks; `rival_book.gd` uses that same
   scorer. The synthetic rival must remain beatable through actual Remo input.
+- Hot seat admits two actual human performances per tanda: P1 calls first,
+  P2 leads tanda two, then the existing decider rule applies. The legacy
+  `Singer.RIVAL` slot is actual P2 in this mode, never synthetic input.
+  It forcibly disables the chamber clock, including locks, not the six/nine-second
+  windows or guard. Both singers can use once-only free Repeat before answering.
+  Keep caller frames/profile/singer separate from the next input lane; Repeat
+  uses that completed caller's contour as a neutral tone with capture closed.
+  Results/statistics count each singer's actual turns. Replay clears both
+  scores/tracks/references but preserves session-local profile/source choices.
 - Self-echo reuses the guarded player window for its seed; only a completed
   voiced track can seed it. Seed capture awards no points/records/tandas.
   `rival_book.gd` deep-copies frames, the actual source profile and Quiet Mode;
@@ -74,7 +87,9 @@ recorded salomero opponents.
   captions and rule data. Its `levels()` supplies the shared manifest selector;
   gameplay reads `GameSession.selected_level()`. Do not add a second selector
   or put an arena ID in Settings. Selection survives replay, not app restart.
-  Only locks consume the chamber clock; open-water Repeat is once-only and free.
+  In solo, only locks consume the chamber clock; open-water Repeat is once-only
+  and free.
+  Hot seat is untimed in all arenas and parks lock water at its initial height.
   Every arena retains the listening deadline/guard. Pacific uses five actual
   judges throughout scoring, HUD, totals and results, not just extra labels.
 - `voice_calibration.gd` is the unscored Room/Speak/Low/High/Call model and
@@ -108,13 +123,22 @@ recorded salomero opponents.
   identify it by its unique name, not a stale bus index.
 - Auto prefers an available calibrated device, otherwise Remo. It does not open
   hardware, and a failed mic falls back without rewriting the Auto preference.
+- Human cards start without a selected profile. Their profile/source choices
+  are independent and session-local, not edits to the saved source default.
+  Only explicit Soundcheck Save/use writes calibration/selection and adopts it
+  for the active seat. New P2 Soundcheck must not preselect P1 or the file's last
+  selected name. Source/profile selection never opens hardware; capture stops
+  after each completed human turn and before Repeat. Do not reparent checked
+  capture when adopting a fresh Soundcheck result.
 - Live web analysis yields after eight detector windows. Zero-budget pushes
   queue only; default `-1` is unlimited for offline work. Drain bounded pending
   analysis before `finish`; cancellation drops it. A wall-clock deadline stops
   capture, not already queued analysis. Preserve the actual-silence frame cutoff.
 - Rest reminders count only completed voiced microphone turns, six in a rolling
   ten minutes. They stay session-local across replays and offer a choice only
-  between duels. Dismissal, disabled reminders and Remo must remain non-coercive.
+  between duels. Hot-seat counts are per singer; an offer may appear on that
+  singer's first handoff of a new duel. Their Remo choice affects only that seat.
+  Dismissal, disabled reminders and Remo must remain non-coercive.
 - Keep errors visible and the explicitly synthetic examples usable when a
   microphone is absent, disabled or denied. Extra amplitude earns no points.
 - Starting Remo disconnects capture. Its neutral synthetic preview is on the
@@ -245,6 +269,13 @@ It also runs the optional echo entry, silent/missing/interrupted seed recovery,
 actual buffered-PCM seeding, frozen source profiles, quiet delays/repeats,
 pause/caption recovery and actual Remo win/echo loss through shell results.
 All eight native layouts cover seed-ready/listening and echo review.
+Human checks use the actual shared setup/briefing and real input for both winners,
+including five Pacific judges, per-seat 160/280 Hz PCM normalization and actual
+fresh P2 Soundcheck Save/capture adoption. They verify no profile/source/default
+leaks, caller-relative free Repeat, pause/recovery, per-singer rest, both shell
+scores and rematches. Both human handoffs/live/reviews cover all eight layouts,
+including Ready after final action-row layout, focused profile scrolling and
+actual P2 touch/gamepad input. Do not replace those with injected scored turns.
 `tools/capture_art.gd` regenerates the setup's `assets/levels/*.png` from the
 real arena meshes with a graphics window; reimport after running it.
 These do not verify physical devices, OS permissions, acoustic output or real

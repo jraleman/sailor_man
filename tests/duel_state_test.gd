@@ -26,10 +26,11 @@ func _run() -> void:
 	_test_refused_scores()
 	_test_judges()
 	_test_rival()
+	_test_hot_seat()
 	_test_self_echo()
 	_test_echo_snapshot()
 	if _failures.is_empty():
-		print("Duel state, judges, synthetic rival and self-echo tests passed.")
+		print("Duel state, judges, hot-seat, synthetic rival and self-echo tests passed.")
 	else:
 		for failure in _failures:
 			printerr(failure)
@@ -258,6 +259,76 @@ func _test_rival() -> void:
 	(rival["frames"] as Array).clear()
 	_expect(not (second["frames"] as Array).is_empty(),
 		"One take's mutation must not damage the next duel's authored data.")
+
+
+func _test_hot_seat() -> void:
+	var duel := Duel.new()
+	duel.reset(false, Duel.CHAMBER_SECONDS, 5, true, false, true)
+	duel.start()
+	duel.advance(900.0)
+	_expect(duel.hot_seat and not duel.uses_chamber_clock
+		and duel.singer == Duel.Singer.PLAYER and duel.phase == Duel.Phase.PLAYER_READY
+		and duel.records.is_empty() and is_zero_approx(duel.chamber_fraction()),
+		"Hot seat must wait for P1, without a synthetic turn or a hidden lock timeout.")
+	_open_player(duel)
+	_finish(duel, 0.5)
+	var reference := duel.call_track.duplicate(true)
+	duel.continue_duel()
+	_expect(duel.singer == Duel.Singer.RIVAL and duel.phase == Duel.Phase.PLAYER_READY
+		and duel.records.size() == 1 and duel.call_track == reference,
+		"P2 must get a real guarded answer with P1's completed call as its reference.")
+	duel.request_repeat()
+	duel.advance(900.0)
+	duel.finish_repeat()
+	_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.records.size() == 1
+		and duel.repeat_used and duel.singer == Duel.Singer.RIVAL
+		and not duel.request_repeat().is_empty(),
+		"A hot-seat repeat is free, once-only playback, not a P2 score or a new turn.")
+	duel.cue_player()
+	duel.advance(0.24)
+	_expect(not duel.finish_turn(_result(1.0, true), _track(), "P2").is_empty(),
+		"P2 must not bypass the same cue guard required for P1.")
+	duel.advance(0.01)
+	duel.observe_frames(_track())
+	duel.cancel_player()
+	_expect(duel.singer == Duel.Singer.RIVAL and duel.phase == Duel.Phase.PLAYER_READY
+		and duel.call_track == reference and duel.records.size() == 1,
+		"Cancelling P2 must retry that answer without changing P1's reference or score.")
+	_open_player(duel)
+	_finish(duel, 0.5)
+	_expect(duel.wins == PackedInt32Array([0, 1]),
+		"A tied hot-seat tanda must still go to its human answerer.")
+	duel.continue_duel()
+	_expect(duel.tanda == 2 and duel.singer == Duel.Singer.RIVAL
+		and duel.phase == Duel.Phase.PLAYER_READY and duel.call_track.is_empty(),
+		"P2 must call tanda two without carrying over the previous Eco reference.")
+	_open_player(duel)
+	_finish(duel, 0.5)
+	duel.continue_duel()
+	_open_player(duel)
+	duel.advance(duel.window_seconds)
+	_expect(duel.close_requested, "Untimed hot seat must retain its per-call deadline.")
+	_finish(duel, 0.5)
+	duel.continue_duel()
+	_expect(duel.tanda == 3 and duel.leader == Duel.Singer.RIVAL,
+		"Equal margins must still give the decider to the loser of tanda two.")
+	_open_player(duel)
+	_finish(duel, 0.2)
+	duel.continue_duel()
+	_open_player(duel)
+	_finish(duel, 1.0)
+	_expect(duel.phase == Duel.Phase.COMPLETE and duel.winner == Duel.Singer.PLAYER
+		and duel.wins == PackedInt32Array([2, 1]) and duel.records.size() == 6,
+		"Both humans' actual turns must settle a normal best-of-three result.")
+	duel.reset(false, Duel.CHAMBER_SECONDS, 3, true, false, true)
+	duel.start()
+	_expect(duel.hot_seat and duel.records.is_empty() and duel.call_track.is_empty()
+		and duel.points == PackedInt32Array([0, 0]) and duel.singer == Duel.Singer.PLAYER,
+		"A hot-seat rematch must discard both singers' previous scores and references.")
+	duel.reset()
+	duel.start()
+	_expect(not duel.hot_seat and duel.uses_chamber_clock and duel.phase == Duel.Phase.RIVAL,
+		"Returning to solo must preserve the original rival-first lock duel.")
 
 
 func _test_self_echo() -> void:

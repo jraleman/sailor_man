@@ -17,7 +17,7 @@ func record_turn(now: float, voiced: bool) -> void:
 		_turns.append(now)
 
 
-## A view may offer rest between duels, never interrupt a performance.
+## Views offer rest before a singer's duel starts, never interrupt a performance.
 func is_due(now: float) -> bool:
 	_prune(now)
 	return _turns.size() >= TURNS

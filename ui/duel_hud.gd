@@ -8,6 +8,7 @@ signal repeat_requested
 signal echo_requested
 signal source_requested(microphone: bool)
 signal auto_source_requested
+signal profile_requested(name: String)
 signal soundcheck_requested
 signal rest_dismissed
 signal rest_remo_requested
@@ -21,6 +22,7 @@ const Ribbon = preload("res://games/sailor_man/ui/voice_ribbon.gd")
 const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
+const Identity = preload("res://scripts/player_identity.gd")
 
 var lock: Canal
 var primary: Button
@@ -43,6 +45,11 @@ var _mic_button: Button
 var _auto_button: Button
 var _soundcheck: Button
 var _source_status: Label
+var _profile_row: VBoxContainer
+var _profile_title: Label
+var _profiles: OptionButton
+var _profile_names := PackedStringArray()
+var _player_names := PackedStringArray(["Player 1", "Player 2"])
 var _rest_offer: VBoxContainer
 var _pause: Button
 var _rival_ribbon: Ribbon
@@ -53,6 +60,7 @@ var _rival_description: Label
 var _judges: Array[Label] = []
 var _arena := Arenas.arena(Arenas.GATUN)
 var _phase := -1
+var _singer := -1
 var _use_microphone := false
 var _preference := 1.0
 var _ui_unit := 0.0
@@ -73,6 +81,7 @@ func _ready() -> void:
 	_pause = _button(header, "PauseDuel", "Pause", func() -> void: pause_requested.emit())
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_frame.add_child(_scroll)
 	var column := VBoxContainer.new()
@@ -102,13 +111,24 @@ func _ready() -> void:
 		func() -> void: source_requested.emit(false))
 	_mic_button = _button(_sources, "UseMicrophone", "Microphone",
 		func() -> void: source_requested.emit(true))
+	_profile_row = VBoxContainer.new()
+	column.add_child(_profile_row)
+	_profile_title = _label(_profile_row, "SeatProfileTitle", "")
+	_profiles = OptionButton.new()
+	_profiles.name = "SeatVoiceProfile"
+	_profiles.fit_to_longest_item = false
+	_profiles.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_profile_row.add_child(_profiles)
+	_profiles.owner = self
+	_profiles.unique_name_in_owner = true
+	_profiles.item_selected.connect(_on_profile_selected)
 	_source_status = _label(column, "SourceStatus", "")
 	_rest_offer = VBoxContainer.new()
 	_rest_offer.name = "VoiceRestOffer"
 	column.add_child(_rest_offer)
 	_label(_rest_offer, "VoiceRestCopy",
 		"Six voiced microphone turns in ten minutes. Consider some water or a rest. "
-		+ "Remo is available for the next duel; the choice is yours.")
+		+ "Remo is available whenever you need it; the choice is yours.")
 	var rest_actions := HFlowContainer.new()
 	_rest_offer.add_child(rest_actions)
 	_button(rest_actions, "RestNotNow", "Not now", func() -> void: rest_dismissed.emit())
@@ -145,6 +165,8 @@ func _ready() -> void:
 	_input_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_input_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(_input_box)
+	_scroll.resized.connect(_reveal_focused_ready)
+	_actions.item_rect_changed.connect(_reveal_focused_ready)
 	get_viewport().size_changed.connect(_fit)
 	var settings := get_node_or_null("/root/Settings")
 	if settings != null:
@@ -165,6 +187,28 @@ func configure_arena(arena_id: String) -> bool:
 	) + "No lives or progress are lost. Real voices, cultural review and the voyage remain "
 	_prototype_notice.text += "pending. Soundcheck stores measurements, not audio."
 	return true
+
+
+## Names accompany stable P1/P2 tags and colours on every human handoff.
+func set_player_names(names: PackedStringArray) -> void:
+	assert(names.size() == 2)
+	_player_names = names.duplicate()
+
+
+## Choosing a profile is session-local and never opens its microphone.
+func set_voice_profiles(names: PackedStringArray, selected: String) -> void:
+	if _profiles.item_count == 0 or names != _profile_names:
+		_profile_names = names.duplicate()
+		_profiles.clear()
+		_profiles.add_item("Choose a voice profile")
+		for name in names:
+			_profiles.add_item(name)
+	var selected_index := names.find(selected) + 1
+	if _profiles.selected != selected_index:
+		_profiles.select(selected_index)
+	_profiles.disabled = names.is_empty()
+	_profiles.tooltip_text = selected if not selected.is_empty() else \
+		"Choose your own calibration, or use Remo without one."
 
 
 ## The real practice/input scene is reused, rather than a second input/scorer path.
@@ -188,6 +232,7 @@ func focus_ready_action() -> void:
 	if not is_visible_in_tree():
 		return
 	if not primary.disabled:
+		_scroll.ensure_control_visible.call_deferred(primary)
 		primary.grab_focus()
 	elif _soundcheck.is_visible_in_tree():
 		_soundcheck.grab_focus()
@@ -206,8 +251,11 @@ func show_track(
 
 
 ## Live player geometry does not replace the input lane's reference contour.
-func show_live_track(frames: Array[Dictionary], duration: float, profile: Dictionary) -> void:
-	lock.show_track(Duel.Singer.PLAYER, frames, {}, duration, profile)
+func show_live_track(
+	frames: Array[Dictionary], duration: float, profile: Dictionary,
+	singer := Duel.Singer.PLAYER
+) -> void:
+	lock.show_track(singer, frames, {}, duration, profile)
 
 
 ## Replay parks the camera and drops every previous performance's geometry.
@@ -230,17 +278,26 @@ func present(
 	state: Duel, message: String, microphone: bool, microphone_ready: bool,
 	source_preference := Options.InputSource.AUTO, source_status := "", rest_due := false
 ) -> void:
-	var changed := _phase != state.phase
+	var changed := _phase != state.phase or (state.hot_seat and _singer != state.singer)
 	_phase = state.phase
+	_singer = state.singer
 	_use_microphone = microphone
-	var opponent := "ECHO" if state.echo_challenge else "CPU"
+	var opponent := "P2" if state.hot_seat else ("ECHO" if state.echo_challenge else "CPU")
 	var role := "SEED" if state.preparing_seed else ("CALL" if state.turn == 0 else "ANSWER")
 	var actor := "P1" if state.singer == Duel.Singer.PLAYER else opponent
 	_turn.text = "T%d %s %s" % [state.tanda, actor, role]
 	if state.preparing_seed:
 		_turn.text = "YOUR SEED CALL - UNSCORED"
+	if state.hot_seat and state.phase == Duel.Phase.PLAYER_READY:
+		_turn.text = "PASS THE MIC - %s (%s)" % [_player_names[state.singer], actor]
+	if state.hot_seat:
+		_turn.add_theme_color_override("font_color", Identity.color(state.singer))
+	else:
+		_turn.remove_theme_color_override("font_color")
 	if state.phase == Duel.Phase.LISTENING:
 		var turn_name := "SEED" if state.preparing_seed else "T%d %s" % [state.tanda, role]
+		if state.hot_seat:
+			turn_name = "%s %s" % [actor, turn_name]
 		_turn.text = "YA! %s | %s | %.1f s" % [
 			turn_name, "Microphone" if microphone else "Remo tone",
 			maxf(state.window_seconds - state.window_elapsed, 0.0),
@@ -251,12 +308,16 @@ func present(
 		_turn.text = "P1 WINS" if state.winner == Duel.Singer.PLAYER else opponent + " WINS"
 	elif state.phase == Duel.Phase.ECHO_WAIT:
 		_turn.text = "YOUR ECHO RETURNS - 600 ms"
+	elif state.hot_seat and state.phase == Duel.Phase.REPEAT:
+		_turn.text = "P%d CALL REPLAY - %s ANSWERS NEXT" % [2 - state.singer, actor]
 	var clock := "Chamber %d:%02d" % [
 		int(ceil(state.chamber_left)) / 60, int(ceil(state.chamber_left)) % 60,
 	]
 	_clock.text = "Tandas P1 %d - %d %s | %s" % [
 		state.wins[0], state.wins[1], opponent,
-		clock if state.uses_chamber_clock else "Open water - no chamber deadline",
+		clock if state.uses_chamber_clock else (
+			"Hot seat - no chamber deadline" if state.hot_seat
+			else "Open water - no chamber deadline"),
 	]
 	if state.preparing_seed:
 		_clock.text = "Seed setup | %.0f s window" % state.window_seconds
@@ -271,6 +332,8 @@ func present(
 		primary.text = "Start duel"
 	elif state.phase == Duel.Phase.PLAYER_READY:
 		primary.text = "Ready: seed call" if state.preparing_seed else "Ready"
+		if state.hot_seat:
+			primary.text = "%s Ready" % actor
 		primary.tooltip_text = "Start your microphone turn." if microphone \
 			else "Start your Remo turn."
 		primary.disabled = microphone and not microphone_ready
@@ -279,8 +342,8 @@ func present(
 	repeat.visible = state.phase == Duel.Phase.PLAYER_READY and state.turn == 1
 	repeat.disabled = state.repeat_used
 	repeat.text = "Repeat call" if state.uses_chamber_clock else "Repeat call (free)"
-	_practice.visible = state.phase == Duel.Phase.READY
-	_echo.visible = str(_arena["id"]) == Arenas.CULEBRA and (
+	_practice.visible = not state.hot_seat and state.phase == Duel.Phase.READY
+	_echo.visible = not state.hot_seat and str(_arena["id"]) == Arenas.CULEBRA and (
 		state.phase == Duel.Phase.READY
 		or (state.phase == Duel.Phase.PLAYER_READY and state.preparing_seed))
 	_echo.text = "Skiff practice" if state.echo_challenge else "Challenge your echo"
@@ -292,8 +355,11 @@ func present(
 	_mic_button.disabled = source_preference == Options.InputSource.MICROPHONE
 	_source_status.text = source_status
 	_source_status.visible = _sources.visible
+	_profile_row.visible = state.hot_seat and _sources.visible
+	_profile_title.text = "%s (%s) calibration profile" % [_player_names[state.singer], actor]
 	_rest_offer.visible = rest_due and (state.phase in [Duel.Phase.READY, Duel.Phase.COMPLETE]
-		or (state.preparing_seed and state.phase == Duel.Phase.PLAYER_READY))
+		or ((state.preparing_seed or (state.hot_seat and state.tanda == 1))
+			and state.phase == Duel.Phase.PLAYER_READY))
 	_rival_description.text = (
 		"Your echo uses a frozen seed contour and neutral synthetic tone, "
 		+ "never recorded or live microphone audio."
@@ -302,6 +368,13 @@ func present(
 	lock.boats[Duel.Singer.RIVAL].plaque.text = opponent
 	_canal_caption.text = "%s - self-echo challenge." % _arena["title"] \
 		if state.echo_challenge else str(_arena["caption"])
+	if state.hot_seat:
+		_rival_description.text = "Two human singers share this device. Repeat plays only "
+		_rival_description.text += "the completed pitch contour as a neutral tone, not recorded voice."
+		_canal_caption.text = "%s - two-human practice; no chamber deadline." % _arena["title"]
+		_prototype_notice.text = "Pass the mic and choose your own profile/source before Ready. "
+		_prototype_notice.text += "Both players use the same guarded call deadlines. "
+		_prototype_notice.text += "No lives, voyage progress, microphone audio or tracks are saved."
 	_set_panel(state.judge_count)
 	var panel := Judges.panel(state.judge_count)
 	for index in _judges.size():
@@ -321,12 +394,25 @@ func present(
 		_judges[index].text = "%s | %s x1.5 | P1 %s / %s %s\n%s" % [
 			judge["badge"], str(judge["taste"]).capitalize(), p1, opponent, cpu, note,
 		]
-	lock.present(state.chamber_fraction(), state.singer if state.phase in [
+	var visible_singer := 1 - state.singer \
+		if state.hot_seat and state.phase == Duel.Phase.REPEAT else state.singer
+	lock.present(state.chamber_fraction(), visible_singer if state.phase in [
 		Duel.Phase.RIVAL, Duel.Phase.REPEAT, Duel.Phase.LISTENING,
 	] else -1)
 	_fit()
 	if changed and not primary.disabled:
+		if state.hot_seat:
+			_scroll.ensure_control_visible.call_deferred(primary)
 		primary.grab_focus.call_deferred()
+
+
+func _on_profile_selected(index: int) -> void:
+	profile_requested.emit("" if index == 0 else _profile_names[index - 1])
+
+
+func _reveal_focused_ready() -> void:
+	if _profile_row.visible and primary.has_focus() and not primary.disabled:
+		_scroll.ensure_control_visible.call_deferred(primary)
 
 
 func _set_panel(count: int) -> void:

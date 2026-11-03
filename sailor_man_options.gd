@@ -34,7 +34,8 @@ const TUNABLES: Array[Dictionary] = [
 		"default": InputSource.AUTO,
 		"title": "Input source",
 		"description": "Auto prefers an available calibrated microphone, otherwise Remo. "
-			+ "A microphone always needs your explicit Enable action.",
+			+ "A microphone always needs your explicit Enable action. "
+			+ "Hot-seat card choices stay per player for this session, not in this saved default.",
 		"heading": "Voice input",
 		"choices": [
 			{"value": InputSource.AUTO, "title": INPUT_SOURCE_TITLES[InputSource.AUTO]},

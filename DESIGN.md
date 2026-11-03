@@ -23,10 +23,10 @@
 
 **Current delivery:** complete best-of-three practice duels in five freely
 selectable toy canal arenas against one explicitly synthetic skiff, with judges,
-opt-in microphone input and Remo. Practice retains the full scorer workbench.
-The source manifest exposes this single-player prototype, not the target
-campaign or multiplayer described below. English-first
-copy keeps Spanish saloma terms; v1 hot seat is two humans, and grito stays
+opt-in microphone input and Remo, plus two-human hot seat in those same arenas.
+Solo Practice retains the full scorer workbench. The source manifest exposes
+these practice modes, not the target campaign described below. English-first
+copy keeps Spanish saloma terms; hot seat is two humans, and grito stays
 within Remate. No performer recordings or cultural partner are available yet,
 so Milestone 1's authentic-recording exit remains unverified. The owner
 authorized continuing with Remo and the grey-box duel assuming validation works,
@@ -208,7 +208,30 @@ same tanda rules, scored by the same judges. A **"Pass the mic"** card sits
 between turns, showing the next singer's name, colour **and** P1/P2 label. Each
 player has their **own calibration profile** (§4.2), chosen on that card, so
 two different voices share one microphone fairly. Either player may use
-buttons instead. The duel uses the free-play setting from any unlocked level.
+buttons instead. P1 calls tanda one; P2 answers and leads tanda two. The existing
+answerer-wins-ties and closer-tanda decider rules apply to both actual singers.
+Repeat is once-only and free before an answer, using the completed caller's
+contour/profile as a neutral tone, not recorded voice. Cancellation retries
+the same singer with the earlier completed reference intact.
+
+**Implemented owner-approved practice rules:** all five current arenas are
+available, with **no chamber timeout**, including locks. Water stays at its
+initial height; the ordinary six/nine-second listening deadlines, silence
+cutoff, guard and actual arena judge count still apply. Campaign-aware hot-seat
+access remains undecided; do not infer a champion requirement from solo gates.
+
+Card source/profile choices are session-local per seat and survive rematches,
+not app restart or a new gameplay scene. Each singer starts with no selected
+profile instead of inheriting the other voice. Opening/selecting never requests
+mic access; completed turns and Repeat stop capture, and the next mic turn
+needs explicit Enable. A singer's Soundcheck preselects only their chosen name;
+a fresh P2 defaults to P2 without a saved selection. Explicit Save/use applies
+only to that seat, preserving the other seat and saved source default.
+Fresh checked capture adoption transfers a reference, not the node's parent.
+Replay clears all scores/track references. Statistics and session-local rest
+counts belong to each actual singer; rest offers can appear at results or
+their first handoff in a new duel, never inside listening.
+
 Mobile builds stay single-player, as the shell already enforces
 (`GameSession.multiplayer_available()`).
 
@@ -438,14 +461,17 @@ The game compresses the canal freely. It is a toy-model canal, not a simulator.
 
 ### 5.2 Levels (shared level selector)
 
-Use the manifest's `levels` with achievement gates, like Cube Trials. Each level
+The target solo campaign uses the manifest's `levels` with achievement gates,
+like Cube Trials. Each level
 has an `icon` captured from the real scene by `tools/capture_art.gd`.
 
 **Current owner-approved development access:** `canal_arenas.gd` exposes
 `gatun`, `lake`, `culebra`, `pedro_miguel` and `pacific` as **free practice**
 through that existing selector, with captured 640x360 icons. Every arena uses
-the same explicitly synthetic skiff, not the encounters or gates in the target
-campaign table below. Selection is session-local and survives duel replay;
+the same explicitly synthetic skiff in solo or actual P1/P2 in hot seat, not the
+encounters or gates in the target campaign table below. Hot seat is untimed in
+all five; its eventual campaign-access policy is not decided.
+Selection is session-local and survives duel replay;
 it awards no voyage progress. Culebra also offers a separate optional self-echo
 challenge. Its mechanic is implemented in free practice, not as the voyage
 boss encounter in the target table.
@@ -459,7 +485,8 @@ boss encounter in the target table.
 | 5 | **Miraflores & the Pacific** | The visitor-centre crowd's favourite | **La Maestra**, on the festival boat under the Bridge of the Americas | Everything; judges with two tastes | `sailor_man_passed_pedro_miguel` |
 
 Completing level 5 unlocks `sailor_man_champion` and **free play**: any rival,
-any arena, and the hot-seat duel at every arena (not only level 1).
+any arena, in the future solo campaign. These gates do not restrict the current
+free-practice or two-human selectors.
 
 ### 5.3 Arena modifiers
 
@@ -824,6 +851,11 @@ manifest-declared tunables. Recalibration opens through the game-owned
 pre-duel Soundcheck button; no framework action-row API or game-name branch
 is needed.
 
+The saved source option initializes each human seat's default. Later card
+choices are session-local and independent; Quiet Mode, sensitivity and listening
+windows remain game-wide. Completed voiced-microphone rest counts are per
+human singer, not a combined count or a persisted profile field.
+
 ---
 
 ## 11. Voices and cultural authenticity
@@ -896,14 +928,14 @@ below still describe later milestones.
 | `voice_normalisation_test.gd` | The same contour sung by a low and a high profile scores within 2 % |
 | `voice_pipeline_test.gd` | MPM on synthesized PCM, sample-rate/buffer independence, streaming normalization, octave guard, source-to-scorer integration and disabled-input failure |
 | `remo_source_test.gd` | Key and touch inputs produce the expected frames; an ideal Remo and an ideal sung performance score within 5 % |
-| `duel_state_test.gd` | Leads/ties/decider, optional clock, free Repeat, five judges, bounded windows; unscored seed validation, frozen profiles/Quiet Mode, echo delay and fresh-seed replay |
-| `duel_scene_test.gd` | Real input duels/results/replay, shared arena selection/icons/rules and Pacific judges; buffered-PCM self-echo seed, actual win/loss, safe delayed repeats/pause, source privacy and responsive seed/review layouts |
+| `duel_state_test.gd` | Leads/ties/decider, optional clock, free Repeat, five judges, bounded windows; two-human guarded turns/references/untimed handoffs; unscored seed validation, frozen profiles/Quiet Mode, echo delay and fresh-seed replay |
+| `duel_scene_test.gd` | Real input duels/results/replay, shared arena selection/icons/rules and Pacific judges; both human winners, per-seat PCM/calibration/source/rest, fresh P2 Soundcheck adoption, safe repeats/pause and responsive focus/input; buffered-PCM self-echo seed, actual win/loss and delayed returns |
 | `rival_book_test.gd` | Every rival's every take loads, its stored score sits in its difficulty band, and a reachable player score beats each boss |
 | `voyage_test.gd` | Level order, achievement gates, free play after the champion, and that progress never regresses |
 | `voice_calibration_test.gd` | Profiles round-trip, dead-mic silence detection, missing-falsetto fallback |
 | `soundcheck_scene_test.gd` | Actual Room/Speak/Low/High/Call wizard, capture handoff, saved profiles, cancellation/failure, quiet source selection and native layouts |
 | `sailor_audio_test.gd` | Original PCM headroom/DC/loop seam, real owned playback, immediate quiet contexts and combined verdict captions; duel scenes also verify actual native caption layouts and source safety |
-| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; hot-seat checks follow its implementation |
+| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; two-human manifest capability |
 | `canal_view_test.gd` *(window)* | All five arenas over 40 size/UI cases, both singers/water endpoints, actual paint/contour/landmark pixels, complete primary landmarks, <60 draws, pause/hidden/reduced-motion/effects |
 
 The framework suites pick the game up automatically. Run them all with
@@ -948,8 +980,9 @@ cruises; more rivals per level; a grito-only quick-fire mode; daily rival.
    Full Spanish localisation is deferred.
 4. **Gender of the champion title.** "Rey / Reina del Canal" follows the
    captain chosen. Confirm, or pick a neutral title.
-5. **Hot seat — confirmed:** two humans in v1, not three. Enable it only once
-   the real duel and per-seat profile hand-off are implemented.
+5. **Hot seat — confirmed and implemented:** two humans in v1, not three.
+   The owner chose all five current practice arenas and no chamber timeout,
+   retaining ordinary listening deadlines. Future campaign access is undecided.
 6. **Grito — confirmed:** part of Remate, with no separate action.
 7. **Real places — confirmed:** use real canal place names, without any
    canal-authority branding. The current practice arenas are toy

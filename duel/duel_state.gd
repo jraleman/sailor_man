@@ -39,6 +39,7 @@ var repeat_used := false
 var echo_challenge := false
 var preparing_seed := false
 var echo_rival: Dictionary = {}
+var hot_seat := false
 
 var _chamber_seconds := CHAMBER_SECONDS
 var _guard_left := 0.0
@@ -52,13 +53,15 @@ var _received_frames := 0
 ## Retries discard duel-local results, never a save, calibration or achievement.
 func reset(
 	long_windows := false, chamber_seconds := CHAMBER_SECONDS, panel_size := 3,
-	chamber_clock := true, self_echo := false
+	chamber_clock := true, self_echo := false, two_humans := false
 ) -> void:
 	assert(is_finite(chamber_seconds) and chamber_seconds > 0.0)
 	assert(panel_size in [3, 5])
+	assert(not (self_echo and two_humans))
 	phase = Phase.READY
 	tanda = 1
-	leader = Singer.RIVAL
+	hot_seat = two_humans
+	leader = Singer.PLAYER if hot_seat else Singer.RIVAL
 	singer = leader
 	turn = 0
 	winner = -1
@@ -73,7 +76,7 @@ func reset(
 	_chamber_seconds = chamber_seconds
 	chamber_left = chamber_seconds
 	judge_count = panel_size
-	uses_chamber_clock = chamber_clock
+	uses_chamber_clock = chamber_clock and not hot_seat
 	close_requested = false
 	repeat_used = false
 	echo_challenge = self_echo
@@ -84,12 +87,12 @@ func reset(
 	_reset_window()
 
 
-## The rival calls tanda one; self-echo first needs a fresh, unscored seed.
+## P1 calls first in hot seat; solo starts with its rival or an unscored seed.
 func start() -> String:
 	if phase != Phase.READY:
 		return _error("Start a duel only from its ready card.")
-	if preparing_seed:
-		singer = Singer.PLAYER
+	if preparing_seed or hot_seat:
+		singer = leader if hot_seat else Singer.PLAYER
 		phase = Phase.PLAYER_READY
 	else:
 		phase = Phase.RIVAL
@@ -125,19 +128,22 @@ func continue_duel() -> String:
 	else:
 		tanda += 1
 		turn = 0
-		leader = Singer.PLAYER if tanda == 2 else _decider_leader()
+		if tanda == 2:
+			leader = Singer.RIVAL if hot_seat else Singer.PLAYER
+		else:
+			leader = _decider_leader()
 		singer = leader
 		call_track.clear()
 		repeat_used = false
 	_reset_window()
-	if singer == Singer.PLAYER:
+	if hot_seat or singer == Singer.PLAYER:
 		phase = Phase.PLAYER_READY
 	else:
 		_begin_playback(Phase.RIVAL)
 	return ""
 
 
-## Both rival tails and the short cue finish before any player frame is admitted.
+## Either human's turn needs the full cue guard before any frame is admitted.
 func cue_player() -> String:
 	if phase != Phase.PLAYER_READY:
 		return _error("The player can be cued only before their own turn.")
@@ -252,7 +258,7 @@ func cancel_player() -> void:
 ## A repeat is playback, not an extra scored performance or another listening window.
 func request_repeat() -> String:
 	if phase != Phase.PLAYER_READY or turn != 1 or call_track.is_empty() or repeat_used:
-		return _error("Repeat the rival's call once, before starting its answer.")
+		return _error("Repeat the completed call once, before starting its answer.")
 	repeat_used = true
 	_begin_playback(Phase.REPEAT)
 	return ""

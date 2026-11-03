@@ -24,6 +24,8 @@ const PROMPTS := [
 ]
 
 var profile_path := Calibration.SAVE_PATH
+var seat_tag := ""
+var selected_profile_name := ""
 var _model := Calibration.new()
 var _source := Source.new()
 var _capture: Node
@@ -67,6 +69,8 @@ func _ready() -> void:
 	var header := HBoxContainer.new()
 	column.add_child(header)
 	_title = _label(header, "SoundcheckTitle", "Soundcheck")
+	if not seat_tag.is_empty():
+		_title.text += " - " + seat_tag
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_button(header, "BackSoundcheck", "Back", _cancel)
 	_scroll = ScrollContainer.new()
@@ -100,7 +104,7 @@ func _ready() -> void:
 	_label(body, "NameTitle", "Save as (replaces this named calibration)")
 	_name = LineEdit.new()
 	_name.name = "ProfileName"
-	_name.text = "P1"
+	_name.text = seat_tag if not seat_tag.is_empty() else "P1"
 	_name.max_length = 40
 	_name.text_changed.connect(func(_text: String) -> void: _update())
 	body.add_child(_name)
@@ -122,13 +126,21 @@ func _ready() -> void:
 	var loaded := Calibration.load_profiles(profile_path)
 	_profiles = loaded["profiles"]
 	_load_error = str(loaded["error"])
+	var selected := selected_profile_name if not seat_tag.is_empty() \
+		else str(loaded["selected"])
+	var selected_index := -1
 	for name: String in _profiles:
 		_names.add_item(name)
-		if name == str(loaded["selected"]):
-			_names.select(_names.item_count - 1)
-			_name.text = name
+		if name == selected:
+			selected_index = _names.item_count - 1
 	_names.item_selected.connect(_on_profile_selected)
-	if _names.item_count > 0:
+	if selected_index >= 0:
+		_names.select(selected_index)
+		_on_profile_selected(selected_index)
+	elif not seat_tag.is_empty():
+		_names.select(-1)
+		_names.text = "Choose a saved profile"
+	elif _names.item_count > 0:
 		_on_profile_selected(_names.selected)
 	if not _load_error.is_empty():
 		_status.text = _load_error + " Remo is still available."
@@ -156,6 +168,7 @@ func _on_profile_selected(index: int) -> void:
 	for device_index in _device.item_count:
 		if _device.get_item_text(device_index) == str(_profiles[name]["device"]):
 			_device.select(device_index)
+	_update()
 
 
 func _begin_capture(capture: Node) -> void:
@@ -319,7 +332,7 @@ func _save_profile() -> void:
 
 
 func _select_saved() -> void:
-	if _names.item_count == 0 or _capture != null:
+	if _names.item_count == 0 or _names.selected < 0 or _capture != null:
 		return
 	var name := _names.get_item_text(_names.selected)
 	var error := Calibration.select_profile(name, profile_path)
@@ -405,7 +418,7 @@ func _update() -> void:
 	_save.disabled = _name.text.strip_edges().is_empty()
 	_device.disabled = _capture != null
 	_names.disabled = _capture != null or _names.item_count == 0
-	_use_saved.disabled = _capture != null or _names.item_count == 0
+	_use_saved.disabled = _capture != null or _names.selected < 0
 
 
 func _fit() -> void:

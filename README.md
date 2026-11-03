@@ -2,8 +2,9 @@
 
 A saloma call-and-response game in development. The prototype offers
 **five free toy-canal arenas for synthetic-skiff practice**, plus an optional
-Culebra self-echo challenge, using the same scorer, Remo or an opt-in microphone. The
-finished canal campaign, recorded rival crews and hot seat are not implemented.
+Culebra self-echo challenge and **two-human hot seat**, using the same scorer,
+Remo or an opt-in microphone. The finished canal campaign and recorded rival
+crews are not implemented.
 
 ## Run the prototype
 
@@ -14,9 +15,9 @@ godot --headless --path . --import
 godot --path . -- --game=sailor_man
 ```
 
-Choose **Play**, select a **Practice arena** in setup, then **Start duel**.
-All five are freely selectable; these are not unlocked voyage levels.
-**Practice** opens the full scorer
+Choose **Play**, then **Single Player** or two-human **Multiplayer**, select a
+**Practice arena** in setup, and begin. All five are freely selectable;
+these are not unlocked voyage levels. Solo's **Practice** opens the full scorer
 workbench; **Back to duel** starts a fresh duel. For the development-only
 workbench without the shell:
 
@@ -69,11 +70,56 @@ The skiff's authored track and synthetic tone are development placeholders,
 not performer recordings. Turn gating and tail protection are implemented,
 but real room reverb, devices and permissions still need physical QA.
 
+## Two-human hot seat
+
+Choose **Multiplayer** in the existing setup, then any of the five practice
+arenas. Two humans share one device and the same keyboard/gamepad/touch controls.
+Mobile builds remain solo. The second boat and judge rows identify **P2**,
+not a synthetic rival or ECHO.
+
+**P1 calls tanda one; P2 answers and calls tanda two.** Each handoff names the
+next singer with their player name, colour and P1/P2 tag. Choose that singer's
+calibration profile and **Auto / Microphone / Remo**, then **P1 Ready / P2 Ready**.
+On phones and short screens, the profile/source details scroll; focus reveals
+Ready and keyboard/controller navigation follows the focused control.
+Each singer starts with no profile selected rather than inheriting another
+person's voice. Use a saved profile or that singer's **Soundcheck** for voice
+calibration, or use Remo immediately.
+
+Profile/source choices on the card stay **per player for this gameplay session**,
+including rematches. They do not rewrite the saved source default or the other
+seat's choices. Explicit Soundcheck Save/use still writes the named scalar
+calibration/selection, but applies it only to the active seat. A new P2
+Soundcheck defaults its save name to P2 and preselects no other singer's profile.
+Opening a card or choosing a source/profile never requests microphone access.
+Capture closes after each performance and must be explicitly enabled again
+before the next microphone turn. A fresh Soundcheck Save can hand over its
+already checked capture without reparenting or restarting it.
+
+Hot seat has **no chamber timeout in any arena**, including both locks; their
+water stays at its initial height. The ordinary cue/250 ms guard, six/nine-second
+listening deadline and actual-silence cutoff still apply. Both humans use the
+same scorer, three judges (five in the Pacific), answerer-wins-ties and existing
+decider rule. **Repeat call (free)** is once-only before an answer: it plays
+the completed caller's contour/profile as a neutral tone from that caller's
+boat, with capture stopped, not recorded voice. Cancellation retries the same
+singer without replacing the completed call.
+
+Both players' actual scores and winner reach shell results; each player's
+statistics count only their own performances. Rematch clears both scores,
+tracks and references, retains their session choices, and opens no microphone.
+Voice-rest counts are separate per singer; offers appear at results or that
+singer's first handoff in a new duel, never during listening. Choosing Remo
+for a rest changes only that seat. Full Practice and Culebra self-echo remain
+separate solo entries, not additional opponents inside a human match.
+
 ## Five toy practice arenas
 
 The shared setup selector reads `canal_arenas.gd` through `GameManifest.levels`;
 `GameSession.selected_level()` supplies gameplay's arena. No new framework
 branches, selector, settings key or campaign achievement gate is involved.
+The rule column below describes solo practice; hot seat is untimed in every
+arena and retains its actual judge count.
 
 | Arena | Practice rules | Original scenery |
 | --- | --- | --- |
@@ -86,7 +132,8 @@ branches, selector, settings key or campaign achievement gate is involved.
 These are batched meshes in an isolated Compatibility viewport, not final
 campaign encounters. Culebra's optional self-echo challenge uses a completed
 pitch-track snapshot, never delayed microphone audio or live monitoring.
-Both boats retain blue/red paint, pennants and explicit **P1 / CPU** labels.
+Both boats retain blue/red paint, pennants and explicit **P1 / CPU**, **ECHO**
+or **P2** labels appropriate to the selected mode.
 Their plain toy crew imply no named captain or traditional costume. The same
 boat rig exposes empty hat/bow attachment slots for later cosmetics; no shop
 or gallery is implemented.
@@ -121,7 +168,8 @@ godot --headless --path . --import
 
 ## Culebra self-echo challenge
 
-Select **Corte Culebra**, then **Challenge your echo** on its ready card.
+Select **Single Player** and **Corte Culebra**, then **Challenge your echo**
+on its ready card.
 Press **Ready: seed call**, wait through the normal cue/250 ms guard and make
 a comfortable call with Remo or an explicitly enabled microphone. The seed
 earns no judge points or tandas. Silence, missing PCM and interrupted seeds
@@ -242,7 +290,8 @@ the next Remo call, recording or example is an answer and can earn Eco.
 The game-owned **Soundcheck** button opens a pre-duel overlay, also available
 before your next turn. It suspends the chamber clock, preserves the pending
 call and does not request microphone access. Pick a device and profile name
-(default **P1**), then explicitly press **Enable microphone**:
+(default **P1** in solo, or the active seat's tag for a new human profile),
+then explicitly press **Enable microphone**:
 
 1. **Room:** two seconds of actual input measure the noise floor. Dead,
    denied or absent input is an explicit failure, with a **Use Remo** exit.
@@ -296,7 +345,9 @@ automated bounded-processing coverage, not browser/device performance QA.
 - Five freely selectable, original toy canal arenas in an isolated Compatibility
   viewport, rising/descending locks, free open-water Repeat and five Pacific
   judges, with captured setup icons and no campaign gates.
-- Original boats, numeric P1/CPU paddles, source-relative world ribbons,
+- Two-human hot seat through shared setup, named pass-the-mic cards, per-seat
+  profile/source/rest state, guarded real input and untimed practice arenas.
+- Original boats, numeric P1/CPU/ECHO/P2 paddles, source-relative world ribbons,
   captions and responsive duel/input presentation.
 - Original owned canal SFX, microphone-quiet ambience rules and combined,
   responsive audio captions; no cruise music or performer samples.
@@ -448,6 +499,18 @@ an echo win and the real shell result label. Replay drops every old snapshot.
 Native runs check seed-ready/listening and echo review in all eight layouts,
 including the ECHO boat label, visible controls and complete boat framing.
 
+Hot-seat checks use the real shared setup/briefing and all five arenas, then
+actual input for P1 and P2 2-0 wins, including a five-judge Pacific match.
+They cover guards, cancellation, caller-relative free Repeat, pause/reannounced
+playback, both shell scores/results and rematch cleanup. Buffered PCM at
+160/280 Hz verifies separate measured/unmeasured profiles, reference isolation,
+capture shutdown, session-only card choices and per-singer rest counts.
+Fresh P2 Soundcheck uses actual synthetic PCM and explicit Save to adopt its
+capture without a tree exit/restart or changing P1's profile/source.
+All eight size/UI combinations cover both singers' handoff, live and review,
+including scroll-accessible profiles, Ready after layout changes and actual P2
+touch/gamepad input. These checks use Dummy audio, not physical devices.
+
 Soundcheck checks feed synthesized PCM through the real wizard, detector and
 normalizer, including a queued Stop, observed versus skipped high band,
 named-profile round-trips and unchanged files after cancellation/failure.
@@ -480,7 +543,9 @@ or denied input, loss of incoming buffers, and pausing mid-call: no failed turn
 should change the previous score or replace its reference, and the synthetic
 examples should remain usable. Check SFX volume/mute/captions, comfortable cue
 levels and that speaker reverberation cannot enter the next turn. This manual
-pass has not been completed.
+pass has not been completed. For hot seat, repeat with two people using their
+own profiles and mixed Microphone/Remo choices; verify each handoff requires
+fresh microphone activation and that room tails cannot score as the next singer.
 
 **Still unverified:** physical microphones and OS permissions, web/mobile
 capture, real saloma scoring and cultural review. No licensed performer
@@ -490,10 +555,11 @@ scores as passing the real-recording milestone gate.
 
 The owner authorized Remo and grey-box duel work assuming that real-voice
 validation works. That assumption does not mark its unchecked gate complete.
-Recorded rival crews, campaign encounters/progression and two-player hot seat
-remain future work. See `DESIGN.md` and `TODO.md`.
+Recorded rival crews and campaign encounters/progression remain future work.
+Hot seat currently uses all five free-practice arenas; future campaign access
+is not decided. See `DESIGN.md` and `TODO.md`.
 
-Re-record the labelled duel walkthrough only when its visuals/captions change.
+Re-record the labelled solo duel walkthrough only when its visuals/captions change.
 It completes both tandas and reaches shell results with actual keyboard
 events through the scorer and judges, never enabling
 the microphone or substituting a prerecorded saloma:

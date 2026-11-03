@@ -38,8 +38,9 @@ func _initialize() -> void:
 func _run() -> void:
 	var manifest := Manifest.manifest()
 	_expect(
-		not manifest.supports_multiplayer and not manifest.supports_cpu_opponent,
-		"The prototype must not advertise unimplemented multiplayer setup modes."
+		manifest.supports_multiplayer and manifest.local_multiplayer_turns
+			and manifest.max_local_players == 2 and not manifest.supports_cpu_opponent,
+		"The manifest must offer two-human hot seat, not another generic CPU setup mode."
 	)
 	_expect(not manifest.uses_shell_round_rules, "A scorer session must not expire on the shell clock.")
 	GameCatalog.select(manifest.id)

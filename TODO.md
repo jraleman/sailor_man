@@ -20,7 +20,7 @@ below that depends on one should start until it is answered.
       Phase 6 recordings and the Phase 7 review.
 - [x] **Language** (§15.3) — English first, keeping Spanish saloma terms.
 - [ ] **Champion title gender** (§15.4) — "Rey / Reina del Canal" or neutral.
-- [x] **Hot seat** (§15.5) — two humans in v1; not enabled in the spike.
+- [x] **Hot seat** (§15.5) — two humans in v1; implemented through shared setup.
 - [x] **Grito** (§15.6) — part of Remate, no separate action.
 - [x] **Real place names** (§15.7) — the owner approved real names, including
       Gatún, Culebra and Miraflores, without canal-authority branding. This is
@@ -34,14 +34,18 @@ below that depends on one should start until it is answered.
 - [x] **Self-echo structure** (§5.3) — the owner chose a separate best-of-three
       challenge against a fresh unscored seed snapshot, not a one-answer drill.
       Only completed pitch data drives a neutral tone; no live mic monitoring.
+- [x] **Hot-seat practice rules** (§3.5) — the owner chose all five current
+      practice arenas and no chamber timeout, including locks. Ordinary
+      listening deadlines remain; future campaign access is undecided.
 
 ## Discrepancies found while planning
 
 - [x] `mesh_builder.gd` lives in `games/cube_trials/world/`; DESIGN §7.1 now
       names that source. No canal meshes are needed for the spike.
 - [x] Verified Godot **4.7.2** on Windows for the prototype's import/tests.
-- [ ] Hot seat arenas: §3.5 says "any unlocked level", while §5.2 says every
-      arena only after the champion. Pick one and fix `DESIGN.md`.
+- [x] Hot seat arenas: the owner chose all five current practice arenas.
+      §3.5/§5.2 now separate this implemented rule from future solo campaign
+      gates; campaign-aware hot-seat access still needs a later decision.
 - [x] Dolce's Adventure is implemented at `menu_order = 9`; Sailor Man keeps `10`.
 
 ---
@@ -59,7 +63,7 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
       captains, store and gallery stay undeclared.
 - [x] `game.gd` — minimal manifest (§7.4): id, title, tagline, `menu_order = 10`,
       `CONTROL_STYLE_CUSTOM_KEYS`, `uses_shell_round_rules = false`, tunables,
-      bindings. Leave multiplayer off until Phase 8.
+      bindings. Multiplayer stayed off until the tested hot-seat slice below.
 - [x] `gameplay.tscn` (inherits `game_shell.tscn`) + `gameplay.gd` (`extends
       GameShell`, `game_id()`, `super(value)` in the reduced-motion and
       intense-effects overrides).
@@ -484,8 +488,10 @@ flow/visuals are unchanged, so its silent clip is not re-recorded.
 
 ## Milestone 8 — Shell features
 
-- [ ] Hot seat: `supports_multiplayer`, `local_multiplayer_turns`, "Pass the
+- [x] Hot seat: `supports_multiplayer`, `local_multiplayer_turns`, "Pass the
       mic" card with name, colour and P1/P2, per-seat calibration profile.
+      Two actual singers, all five free-practice arenas, no chamber timeout,
+      source/profile/rest isolation, safe handoffs and shared results/replay.
 - [ ] `character_preview.tscn` — captain on the setup plinth.
 - [ ] Store (§9.2): Balboas, slots hat/pennant/paint/bow, starter items,
       `store_preview.tscn` covering both boat and captain.
@@ -495,6 +501,37 @@ flow/visuals are unchanged, so its silent clip is not re-recorded.
 - [ ] `GameTheme` (§8.3) + `assets/game-icon.png` captured from the model.
 - [ ] Credits, including every recorded voice.
 - [ ] Tutorial video + poster (`tools/tutorial_driver.gd`, `record_tutorials.ps1`).
+
+**Two-human follow-up:** implemented ahead of blocked production voices/campaign,
+under the owner's all-practice/untimed choices. P1 calls tanda one, P2 leads
+tanda two and the existing tie/decider rules apply. Both performances use the
+same scorer and actual arena judge count. Named P1/P2 pass cards offer separate,
+session-local source/profile choices; a new singer inherits no other calibration.
+Opening/selecting requests no microphone access. Capture stops after each turn
+and before free Repeat; cancellation preserves the completed caller. Soundcheck
+Save/use applies only to its seat, with fresh checked capture adopted without
+reparent/restart. Rematches retain seat choices, not tracks/scores or capture.
+Per-singer rest offers do not count another person's turns or change their source.
+
+All **eleven game suites**, all **15 framework suites** and all **four windowed
+runs** passed with isolated profiles and Dummy audio, without script errors.
+Real shared setup/briefing covers all five arenas. Actual Remo input reaches
+both P1 and P2 2-0 wins, including five Pacific judges and both shell result
+scores. Buffered 160/280 Hz PCM checks separate measured/unmeasured profiles,
+unchanged caller references and explicit fresh P2 Soundcheck Save/adoption.
+All eight phone-to-ultrawide/normal-150% UI layouts cover both handoffs, live
+input and reviews, with actual P2 touch/gamepad input. A short-landscape focus
+regression failed before Ready was revealed after the final action-row layout;
+profile scrolling remains usable. Rendered frames were inspected. Native
+canal coverage remains **40 arena/size/UI cases** and **23 maximum draw calls**.
+
+Existing shared-audio shutdown-resource diagnostics remain in Soundcheck and
+some scene/framework runs; deliberate capture/profile/backup negatives remain.
+The expanded duel runs have no shutdown-resource errors. No physical-device/
+permission/output, acoustic-tail, browser/mobile, authentic-recording or
+cultural gate is complete. The existing silent solo Gatún tutorial's gameplay
+visuals/captions are unchanged, so it was not re-recorded. Campaign progression,
+recorded opponents, store/gallery and shipping assets remain pending.
 
 ## Milestone 9 — Polish and integration (§12)
 
