@@ -739,6 +739,18 @@ judges' paddle clack and the mula bell. There is an optional music bed in the
 cruise only, never under a listening window. That would bleed into the mic and
 would compete with the singer.
 
+**Current practice-duel implementation:** `audio/sailor_audio.gd` synthesizes
+original non-vocal horn, water, applause, paddle and mula effects on owned SFX
+players. Decorative water and judge cues are limited to Remo between-turn
+states; selecting Microphone silences them before its room check. Reference/
+repeat, guard, listening, Soundcheck, Practice and pause have no canal effects.
+Completion stops capture before final feedback; timeout has no false paddle cue.
+Meaningful simultaneous sounds share one caption in the visible duel HUD.
+The persistent YA header replaces the transient ready caption while listening.
+Title music is stopped, not inherited into the duel. The existing protected
+2400 Hz/60 ms ready cue remains: a conch-style replacement and cruise music
+are not implemented. Digital stops do not validate real acoustic room tails.
+
 ---
 
 ## 10. Tunables and bindings
@@ -834,6 +846,7 @@ size, without requesting microphone access.
 | `rival_book_test.gd` | Every rival's every take loads, its stored score sits in its difficulty band, and a reachable player score beats each boss |
 | `voyage_test.gd` | Level order, achievement gates, free play after the champion, and that progress never regresses |
 | `voice_calibration_test.gd` | Profiles round-trip, dead-mic silence detection, missing-falsetto fallback |
+| `sailor_audio_test.gd` | Original PCM headroom/DC/loop seam, real owned playback, immediate quiet contexts and combined verdict captions; duel scenes also verify actual native caption layouts and source safety |
 | `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; hot-seat checks follow its implementation |
 | `canal_view_test.gd` *(window)* | Real render: both boats visible in the two-shot, ribbon readable, draw-call budget, portrait → ultrawide, Remo lane doesn't cover the singers |
 

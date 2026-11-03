@@ -6,6 +6,7 @@ extends SceneTree
 const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
+const CanalAudio = preload("res://games/sailor_man/audio/sailor_audio.gd")
 
 ## A checked PCM queue substitutes only for the hardware, not the voice pipeline.
 class BufferedCapture extends Node:
@@ -30,6 +31,7 @@ class BufferedCapture extends Node:
 		pending = PackedVector2Array()
 
 var _failures := PackedStringArray()
+var _captions := PackedStringArray()
 
 
 func _initialize() -> void:
@@ -43,6 +45,7 @@ func _run() -> void:
 	var original: Dictionary = settings.get("_values").duplicate(true)
 	var values := original.duplicate(true)
 	values["ui/scale"] = 1.0
+	values[Settings.AUDIO_CAPTIONS_KEY] = true
 	for option: Dictionary in Options.TUNABLES:
 		values[option["key"]] = option["default"]
 	for binding: Dictionary in Options.CONTROL_BINDINGS:
@@ -59,6 +62,9 @@ func _run() -> void:
 		quit(1)
 		return
 	var buses := AudioServer.bus_count
+	var manager := get_root().get_node("AudioManager")
+	manager.connect("caption_requested", func(text: String) -> void: _captions.append(text))
+	manager.call("play_music", CanalAudio.make_stream(CanalAudio.Sound.WATER), 10.0)
 	var game := packed.instantiate()
 	game.set("voice_profile_path", "user://sailor_duel_scene_unwritten_%d.cfg"
 		% OS.get_process_id())
@@ -70,7 +76,10 @@ func _run() -> void:
 	var hud := game.get_node("%DuelHud") as Control
 	_expect(spike.get("_capture") == null and AudioServer.bus_count == buses,
 		"Entering a duel must not request microphone access or create a capture bus.")
+	_expect(not bool(manager.call("is_music_playing")),
+		"The duel must stop even an incoming menu-music crossfade before microphone setup.")
 	_test_canal_state(game, hud)
+	_test_audio_policy(game, spike)
 	_test_remo_win(game, spike, hud)
 	await process_frame
 	_test_pause_and_guard(game, spike)
@@ -101,6 +110,78 @@ func _run() -> void:
 	quit(0 if _failures.is_empty() else 1)
 
 
+func _test_audio_policy(game: Node, spike: Control) -> void:
+	var audio := game.get("_canal_audio") as Node
+	var water := audio.get_node("FillingWater") as AudioStreamPlayer
+	_expect(_canal_silent(game), "Ready must not start decorative canal audio.")
+	game.call("_on_duel_action")
+	_tick(game, 0.5)
+	_expect(_canal_silent(game) and _captions[-1].contains("Synthetic rival"),
+		"Reference playback needs its shape caption, never competing canal effects.")
+	var sfx := AudioServer.get_bus_index("SFX")
+	var muted := AudioServer.is_bus_mute(sfx)
+	AudioServer.set_bus_mute(sfx, true)
+	var count := _captions.size()
+	_tick(game, 3.23)
+	_expect(water.playing and (audio.get_node("PaddleClack") as AudioStreamPlayer).playing
+		and _captions.size() == count + 1 and _captions[-1].contains("judges"),
+		"A real review must play owned effects and one caption, even with muted SFX.")
+	var caption := game.get_node("%AudioCaption") as Control
+	_expect(caption.is_visible_in_tree()
+		and str(caption.call("caption_text")).contains("judges"),
+		"The caption must really be visible outside the shell's hidden default margins.")
+	AudioServer.set_bus_mute(sfx, muted)
+	count = _captions.size()
+	game.call("_apply_phase")
+	_tick(game, 0.1)
+	_expect(_captions.size() == count, "Refreshing a review must not replay its verdict.")
+	game.call("_on_duel_action")
+	game.call("_on_source_requested", true)
+	_expect(_canal_silent(game) and spike.get("_capture") == null,
+		"Selecting Microphone must silence canal audio before explicit room measurement.")
+	_expect(not caption.is_visible_in_tree(),
+		"Source setup must also clear the old transient verdict caption.")
+	game.call("_on_source_requested", false)
+	_expect(water.playing and _captions.size() == count,
+		"Returning to Remo can restore water, but cannot repeat a scored verdict.")
+	game.call("_open_soundcheck")
+	_tick(game, 90.0)
+	_expect(_canal_silent(game),
+		"Soundcheck must stop water immediately and keep it stopped while suspended.")
+	game.call("_on_soundcheck_cancelled")
+	game.call("open_pause_menu")
+	_expect(paused and _canal_silent(game), "Pause must stop every owned canal effect.")
+	var pause := game.get("_pause_menu") as Node
+	if pause != null:
+		pause.call("resume")
+	_tick(game, 0.0)
+	_expect(water.playing and _captions.size() == count,
+		"Resume may restore the between-turn wash without replaying judge cues.")
+	game.call("_on_duel_action")
+	_expect(_canal_silent(game) and _captions[-1].contains("Ready cue"),
+		"The protected cue must be alone before any admitted frames.")
+	_tick(game, 0.25)
+	var turn := game.get_node("%DuelHud").get("_turn") as Label
+	_expect(_canal_silent(game) and turn.is_visible_in_tree() and turn.text.begins_with("YA!")
+		and not caption.is_visible_in_tree(),
+		"The persistent YA header must replace the transient cue, leaving input room clear.")
+	spike.call("stop_capture")
+	var duel: Duel = game.get("_duel")
+	duel.chamber_left = 0.01
+	_tick(game, 0.02)
+	_expect(duel.phase == Duel.Phase.COMPLETE
+		and (audio.get_node("LockHorn") as AudioStreamPlayer).playing
+		and not (audio.get_node("PaddleClack") as AudioStreamPlayer).playing
+		and _captions[-1].contains("time is up"),
+		"An actual chamber timeout must sound its horn without inventing a scored paddle.")
+	game.notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	game.call("_apply_phase")
+	_expect(_canal_silent(game) and not paused,
+		"Focus loss must stop final feedback too, without replaying it on refresh.")
+	game.call("_return_to_duel")
+	_expect(_canal_silent(game), "Replay must stop final feedback instead of carrying it over.")
+
+
 func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 	var duel: Duel = game.get("_duel")
 	_first_answer(game)
@@ -111,6 +192,8 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 		"Rival presentation must retain its authored source profile, not a human fallback.")
 	var count := duel.records.size()
 	game.call("_on_repeat")
+	_expect(_canal_silent(game),
+		"Repeating the scored reference must stop the between-turn water and review effects.")
 	_tick(game, 3.73)
 	_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.repeat_used
 		and duel.records.size() == count,
@@ -132,6 +215,11 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 	_expect(duel.phase == Duel.Phase.COMPLETE and duel.wins[0] == 2
 		and duel.records.size() == 4 and hud.visible,
 		"Two won tandas must show the final verdict without a spurious third tanda.")
+	var audio := game.get("_canal_audio") as Node
+	_expect((audio.get_node("LockHorn") as AudioStreamPlayer).playing
+		and not (audio.get_node("FillingWater") as AudioStreamPlayer).playing
+		and _captions[-1].contains("P1 wins the duel"),
+		"A judged duel win must announce the real winner once, with the water stopped.")
 	var stats: Dictionary = game.call("_player_stats", 0)
 	_expect(int(stats["tandas_won"]) == 2 and float(stats["best_turn"]) > 0.8
 		and int(stats["quiebres"]) >= 6 and float(stats["longest_breath"]) > 4.5
@@ -141,6 +229,7 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 	_expect((game.get_node("%RoundOver") as Control).visible and not hud.visible
 		and (game.get_node("%ResultLabel") as Label).text.contains("P1 WINS"),
 		"Winning the duel must hand off to the real shell results.")
+	_expect(_canal_silent(game), "Shell results must stop owned final feedback.")
 	var report: Control = game.call("player_stats_panel", 0)
 	_expect(report.has_node("Layout/ExtraStats")
 		and not (report.get_node("Layout/Stats") as Control).visible,
@@ -257,6 +346,8 @@ func _test_microphone_loss(game: Node, spike: Control) -> void:
 	capture = _checked_capture(spike)
 	capture.pending = _pcm(0.7)
 	_first_answer(game)
+	_expect(_canal_silent(game),
+		"Microphone setup must keep canal feedback off even after a real rival review.")
 	_expect((spike.get("_track") as Array).is_empty() and capture.pending.is_empty(),
 		"Rival playback and idle buffers must be discarded, not scored as a player call.")
 	_open_player(game)
@@ -281,6 +372,9 @@ func _test_microphone_loss(game: Node, spike: Control) -> void:
 	_tick(game, 3.73)
 	_expect(duel.phase == Duel.Phase.COMPLETE and duel.winner == Duel.Singer.RIVAL,
 		"Both microphone turns must complete a real losing duel through the same judges.")
+	_expect(capture.stopped and spike.get("_capture") == null
+		and _captions[-1].contains("CPU wins the duel"),
+		"Final feedback may sound only after microphone capture has actually stopped.")
 	game.call("_on_duel_action")
 	_expect((game.get_node("%ResultLabel") as Label).text.contains("SKIFF WINS")
 		and capture.stopped and spike.get("_capture") == null,
@@ -325,6 +419,7 @@ func _test_practice_return(game: Node, spike: Control, hud: Control) -> void:
 	game.call("_open_practice")
 	_expect(not hud.visible and not bool(spike.get("_duel_mode")),
 		"Practice must retain the full original workbench.")
+	_expect(_canal_silent(game), "The scorer workbench must not inherit duel ambience.")
 	var start := spike.get_node("%StartRemo") as Button
 	var quiebre := spike.get_node("%RemoBreak") as Button
 	var remate := spike.get_node("%RemoFinish") as Button
@@ -466,6 +561,12 @@ func _test_layouts(game: Node, spike: Control, hud: Control) -> void:
 					"Active input must fit %s at UI %.1f: %s %s" % [
 						size, scale, (control as Control).name, rect,
 					])
+			var caption := game.get_node("%AudioCaption") as Control
+			var caption_rect := transform * caption.get_global_rect()
+			var turn := hud.get("_turn") as Label
+			_expect(not caption.is_visible_in_tree() and turn.is_visible_in_tree()
+				and turn.text.begins_with("YA!"),
+				"The YA header must caption listening without a duplicate taking input space.")
 			if DisplayServer.get_name() != "headless":
 				await process_frame
 				_assert_arena(hud, false)
@@ -475,6 +576,16 @@ func _test_layouts(game: Node, spike: Control, hud: Control) -> void:
 				_test_duel_touch(game, spike, ribbon, button)
 			elif size == Vector2i(1280, 720) and scale == 1.0:
 				_test_duel_gamepad(game)
+			else:
+				_draw_call(game)
+			for _frame in 3:
+				await process_frame
+			caption_rect = transform * caption.get_global_rect()
+			_expect(caption.is_visible_in_tree() and window.encloses(caption_rect)
+				and str(caption.call("caption_text")).contains("tanda"),
+				"A real tanda's full sound caption must remain visible inside every layout.")
+			if DisplayServer.get_name() != "headless":
+				_capture("duel-verdict-%dx%d-ui%.1f.png" % [size.x, size.y, scale])
 			game.call("_on_turn_cancelled", "Layout check complete.")
 			_tick(game, 0.0)
 
@@ -557,6 +668,7 @@ func _open_player(game: Node) -> void:
 	_expect(duel.phase == Duel.Phase.LISTENING, "Ready and the full guard must open a turn.")
 	_expect(not (game.get("_cue") as AudioStreamPlayer).playing,
 		"Cue playback must be stopped before opening the scored listening window.")
+	_expect(_canal_silent(game), "No canal effect may overlap admitted player input.")
 
 
 func _draw_call(game: Node) -> void:
@@ -582,6 +694,14 @@ func _checked_capture(spike: Control) -> BufferedCapture:
 	spike.add_child(capture)
 	spike.set("_capture", capture)
 	return capture
+
+
+func _canal_silent(game: Node) -> bool:
+	var audio := game.get("_canal_audio") as Node
+	for player: AudioStreamPlayer in audio.get("_players"):
+		if player.playing:
+			return false
+	return true
 
 
 func _pcm(seconds: float) -> PackedVector2Array:

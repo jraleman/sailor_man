@@ -93,6 +93,18 @@ advertise a finished voyage or recorded salomero opponents.
 - Starting Remo disconnects capture. Its neutral synthetic preview is on the
   SFX bus, labelled as a tone, not an authentic or recorded captain voice.
   Stop it on finish, cancellation, pause, focus loss and source changes.
+- `audio/sailor_audio.gd` owns original non-vocal SFX players, not shared-pool
+  voices or delayed callbacks. Only Remo review/ready states allow decorative
+  water and judge feedback. Reference/repeat, guard, listening, Soundcheck,
+  Practice and pause stay quiet; selecting Microphone already silences them
+  before Enable. Final feedback waits for capture to stop. Stop on focus loss,
+  source changes, results/replay and exit; do not infer a new score in audio.
+- Meaningful simultaneous sounds emit one combined caption through AudioManager.
+  The duel mounts the existing shell caption outside its hidden default margins,
+  below the scroller. The permanent YA header captions listening without a second
+  row shrinking the input ribbon. Clear stale captions on context changes.
+  Preserve the above-band 60 ms cue/250 ms guard; the conch-style cue, cruise
+  music and physical acoustic-tail validation are still pending.
 - Preserve independent ribbon/Break touch ownership and ignore emulated mouse
   twins. Hit testing must respect ancestor clipping in the scroll container.
   Keyboard/pad gameplay input takes precedence over GUI activation only inside
@@ -159,13 +171,14 @@ godot --headless --path . --script res://games/sailor_man/tests/duel_scene_test.
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_calibration_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/sailor_audio_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --game=all
 ```
 
-Nine suites support headless runs. `canal_view_test.gd` requires a graphics
+Ten suites support headless runs. `canal_view_test.gd` requires a graphics
 window and deliberately refuses `--headless`. The four windowed runs verify
 actual rendered layouts; they also accept
 `--sailor-capture-dir=<absolute directory>` after `--`. Use isolated user data
@@ -190,6 +203,10 @@ Soundcheck covers Room/High/Call/Complete, including the live ribbon staying
 visible after resize and failed saves revealing their status in the scroller.
 Keep the duel suite's audio-mixer cleanup wait: stopping playback is queued,
 and two fast headless process frames alone do not release it before shutdown.
+The audio suite also allows the mixer to consume starts before interrupting
+real playback. It checks PCM headroom/DC/seams and admitted events; duel checks
+assert actual visible, in-bounds muted-SFX captions at every native layout,
+not just caption requests. Digital stop is not measured acoustic-tail safety.
 These do not verify physical devices, OS permissions, acoustic output or real
 singers. Use `--audio-driver Dummy` for automated runs. Run all 15 framework
 suites with `--game=all` after integration changes. Keep `README.md` and

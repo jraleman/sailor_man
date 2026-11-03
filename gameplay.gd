@@ -9,18 +9,21 @@ const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const Tone = preload("res://games/sailor_man/audio/remo_tone.gd")
 const Cue = preload("res://games/sailor_man/audio/duel_audio.gd")
+const CanalAudio = preload("res://games/sailor_man/audio/sailor_audio.gd")
 const Calibration = preload("res://games/sailor_man/voice/voice_calibration.gd")
 const VoiceRest = preload("res://games/sailor_man/voice/voice_rest.gd")
 const Soundcheck = preload("res://games/sailor_man/ui/soundcheck.tscn")
 
 @onready var _spike: Control = %ScorerSpike
 @onready var _duel_hud: Control = %DuelHud
+@onready var _sound_caption: Control = %AudioCaption
 
 var _calls := 0
 var _duel := Duel.new()
 var _rival := Rivals.practice_rival()
 var _rival_tone: Tone
 var _cue: Cue
+var _canal_audio: CanalAudio
 var _rival_frames: Array[Dictionary] = []
 var _rival_elapsed := 0.0
 var _rival_index := 0
@@ -57,6 +60,8 @@ func open_pause_menu() -> void:
 
 
 func _build_playfield() -> void:
+	# A null gameplay music export does not stop a title-screen crossfade.
+	AudioManager.stop_music(0.0)
 	_spike.connect("score_ready", _on_score_ready)
 	_spike.connect("pause_requested", open_pause_menu)
 	_spike.connect("finish_requested", _end_round)
@@ -79,6 +84,10 @@ func _build_playfield() -> void:
 	add_child(_rival_tone)
 	_cue = Cue.new()
 	add_child(_cue)
+	_canal_audio = CanalAudio.new()
+	_canal_audio.caption_requested.connect(AudioManager.request_caption)
+	add_child(_canal_audio)
+	_duel_hud.call("mount_audio_caption", _sound_caption)
 	_load_voice_profile()
 
 
@@ -305,6 +314,7 @@ func _apply_phase() -> void:
 		return
 	if _phase_seen != _duel.phase:
 		_phase_seen = _duel.phase
+		_stop_sounds()
 		match _duel.phase:
 			Duel.Phase.READY:
 				_message = "One synthetic rival. Remo needs no microphone. First to two tandas."
@@ -314,12 +324,14 @@ func _apply_phase() -> void:
 				_rival_frames = _duel.call_track if _duel.phase == Duel.Phase.REPEAT \
 					else _rival["frames"]
 				_message = str(_rival["caption"])
+				AudioManager.request_caption(_message)
 			Duel.Phase.PLAYER_READY:
 				_message = "Your answer: echo the call, then top it." if _duel.turn == 1 \
 					else "Your call: make your own shape. Calls do not score Eco."
 			Duel.Phase.GUARD:
-				_stop_sounds()
+				AudioManager.stop_music(0.0)
 				_cue.cue()
+				AudioManager.request_caption("Ready cue; wait for YA.")
 				_message = "Ready... the scoring window opens after the cue and tail guard."
 			Duel.Phase.LISTENING:
 				_cue.stop()
@@ -329,7 +341,6 @@ func _apply_phase() -> void:
 					_phase_seen = _duel.phase
 					_message = "Input is not ready. Check the microphone or use Remo."
 			Duel.Phase.REVIEW:
-				_stop_sounds()
 				var record := _duel.records[-1]
 				_show_last_turn()
 				_message = "%s %s: %d judge points. %s" % [
@@ -340,12 +351,18 @@ func _apply_phase() -> void:
 						else _tanda_verdict(),
 				]
 			Duel.Phase.COMPLETE:
-				_stop_sounds()
 				_spike.call("stop_capture")
 				if not _duel.records.is_empty():
 					_show_last_turn()
 				_message = "Chamber time expired; CPU wins." \
 					if _duel.reason == "chamber_timeout" else _tanda_verdict()
+		_sync_canal_audio()
+		if _duel.phase == Duel.Phase.REVIEW:
+			_canal_audio.review("" if _duel.turn == 0 else (
+				"P1" if int(_duel.tandas[-1]["winner"]) == Duel.Singer.PLAYER else "CPU"))
+		elif _duel.phase == Duel.Phase.COMPLETE:
+			_canal_audio.complete("P1" if _duel.winner == Duel.Singer.PLAYER else "CPU",
+				_duel.reason == "chamber_timeout")
 	_sync_hud()
 
 
@@ -423,11 +440,24 @@ func _on_source_requested(microphone: bool) -> void:
 
 
 func _sync_hud() -> void:
+	_sync_canal_audio()
 	if is_instance_valid(_duel_hud) and not _practice:
 		_duel_hud.call("present", _duel, _message, _use_microphone,
 			bool(_spike.call("microphone_ready")), _source_preference, _source_status(),
 			Settings.tunable_bool(Options.REST_REMINDERS_KEY)
 				and _voice_rest.is_due(float(Time.get_ticks_msec()) / 1000.0))
+
+
+func _sync_canal_audio() -> void:
+	if not is_instance_valid(_canal_audio):
+		return
+	var between := _duel.phase in [Duel.Phase.REVIEW, Duel.Phase.PLAYER_READY]
+	# Selecting Microphone already protects its room check, before Enable.
+	var allowed := _round_active and not _practice and not is_instance_valid(_soundcheck) \
+		and not get_tree().paused and _spike.get("_capture") == null \
+		and not bool(_spike.get("_recording")) and not bool(_spike.get("_remo_active")) \
+		and (_duel.phase == Duel.Phase.COMPLETE or (between and not _use_microphone))
+	_canal_audio.set_context(allowed, allowed and between and _duel.chamber_left > 0.0)
 
 
 func _load_voice_profile() -> void:
@@ -455,6 +485,7 @@ func _set_input_source(preference: int) -> void:
 
 
 func _apply_input_source() -> void:
+	_stop_sounds()
 	_spike.call("stop_capture")
 	_duel.cancel_player()
 	_resolve_source()
@@ -486,6 +517,7 @@ func _open_soundcheck() -> void:
 		return
 	_spike.call("stop_capture")
 	_stop_sounds()
+	AudioManager.stop_music(0.0)
 	_spike.process_mode = Node.PROCESS_MODE_DISABLED
 	_duel_hud.hide()
 	_soundcheck = Soundcheck.instantiate()
@@ -592,6 +624,10 @@ func _stop_sounds() -> void:
 		_rival_tone.stop()
 	if is_instance_valid(_cue):
 		_cue.stop()
+	if is_instance_valid(_canal_audio):
+		_canal_audio.stop()
+	if is_instance_valid(_sound_caption):
+		_sound_caption.call("clear")
 
 
 func _on_game_setting_changed(key: String, _value: Variant) -> void:
@@ -614,6 +650,8 @@ func _on_game_setting_changed(key: String, _value: Variant) -> void:
 
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready():
+		_stop_sounds()
 	if (
 		what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready()
 		and _round_active and not _practice

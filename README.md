@@ -86,8 +86,33 @@ Narrow listening still gives priority to the input ribbon and Break controls.
 
 Real place names are owner-approved **without canal-authority branding**.
 This is a compressed toy practice lock, not a simulator or a reviewed factual
-reconstruction. Lake/cut/bridge/Pacific scenery, arena modifiers, canal audio,
+reconstruction. Lake/cut/bridge/Pacific scenery, arena modifiers, cruise music,
 the voyage and cultural review remain future work.
+
+## Canal audio
+
+Original synthesized lock horn, filling-water wash, applause, paddle clack and
+mula bell use game-owned players on the normal **SFX** bus. These are non-vocal
+toy effects, not performer recordings. Water is decorative and runs only
+between Remo turns; the visible chamber clock remains authoritative. Reviews
+clack the paddles, a won tanda adds a bell/applause, and a judged duel finish
+gets horn/paddles/applause. A chamber timeout gets only its horn.
+
+Reference playback, Repeat, the guard and listening never have competing
+canal effects. Selecting Microphone already disables water and judge feedback,
+before Enable or room measurement; final feedback waits until capture stops.
+Soundcheck, Practice, pause, focus loss, source changes, results, replay and
+exit stop the effects immediately. The protected 2400 Hz ready cue and synthetic
+pitch/reference tones are unchanged. Title music is stopped on entry; there
+is no duel music or cruise bed yet.
+
+**Settings -> Accessibility -> Audio captions** shows call-shape, ready and
+sound-verdict captions even when SFX is muted. Simultaneous effects share one
+caption rather than replacing one another. The duel reuses the shell's caption
+widget below its scroller; the permanent **YA!** banner replaces the transient
+ready caption during listening, leaving the full input ribbon available.
+Stopping/changing context clears old transient captions. Real playback,
+speakers/headphones and acoustic room tails still require manual validation.
 
 ## Remo controls and practice (no microphone)
 
@@ -209,6 +234,8 @@ automated bounded-processing coverage, not browser/device performance QA.
   rival, call repeats, chamber/turn clocks and guarded source admission.
 - Original primitive boats and lock in an isolated compatibility viewport,
   numeric P1/CPU paddles, captions and responsive duel/input presentation.
+- Original owned canal SFX, microphone-quiet ambience rules and combined,
+  responsive audio captions; no cruise music or performer samples.
 - Guided Soundcheck, named scalar profiles, saved source choice, optional
   voice-rest reminders and a bounded web analysis path.
 - Quiet Mode, six/nine-second windows and 50-150% sensitivity in the Game tab.
@@ -284,8 +311,8 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Ten suites cover the scorer, low/high-register equivalence, synthesized PCM,
-Remo parity, duel rules, calibration/persistence and the real scene/3D paths.
+Eleven suites cover the scorer, low/high-register equivalence, synthesized PCM,
+Remo parity, duel rules, calibration/persistence, canal audio and real scene/3D paths.
 Use `--audio-driver Dummy` for automated runs:
 
 ```powershell
@@ -298,13 +325,14 @@ godot --headless --path . --script res://games/sailor_man/tests/duel_scene_test.
 godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/voice_calibration_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/sailor_audio_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --game=all
 ```
 
-The first nine suites support headless runs. `canal_view_test.gd` requires
+The first ten suites support headless runs. `canal_view_test.gd` requires
 a real graphics window and deliberately exits 1 with `--headless`.
 The four windowed runs check real rendering at 320x568, 568x320, 1280x720
 and 2560x1080 with normal and 150% UI size. Tests do not enable a physical
@@ -322,6 +350,15 @@ usable Remo controls after microphone setup. Native checks project the
 complete boat meshes through the actual camera, verify an isolated 3D world
 and guard a nonempty render below 60 draw calls. Narrow listening layouts
 deliberately hide the arena to keep the ribbon and touch buttons usable.
+
+Audio checks cover seeded PCM, usable headroom, smooth starts/ends and the
+water-loop seam, real owned playback and immediate context stops. Real duel
+events verify once-only captions with muted SFX, quiet microphone/setup/guard/
+reference states, pause/retry/exit and the timeout-versus-judged finish.
+Native checks verify actual visible verdict captions in all eight layouts,
+not merely emitted signals, and retain the full compact listening ribbon.
+Mixer waits deliberately allow playback to start before interruption and drain
+before shutdown; these Dummy-driver checks do not establish acoustic safety.
 
 Canal checks render both singer framings at both water endpoints in all eight
 size/UI combinations, inspect actual launch paint and visible contour pixels,
@@ -362,7 +399,9 @@ For physical-device QA, explicitly enable a microphone and check the room
 measurement, a comfortable call, Quiet Mode and Stop. Then test unavailable
 or denied input, loss of incoming buffers, and pausing mid-call: no failed turn
 should change the previous score or replace its reference, and the synthetic
-examples should remain usable. This manual pass has not been completed.
+examples should remain usable. Check SFX volume/mute/captions, comfortable cue
+levels and that speaker reverberation cannot enter the next turn. This manual
+pass has not been completed.
 
 **Still unverified:** physical microphones and OS permissions, web/mobile
 capture, real saloma scoring and cultural review. No licensed performer

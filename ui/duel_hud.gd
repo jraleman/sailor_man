@@ -24,6 +24,7 @@ var lock: Canal
 var primary: Button
 var repeat: Button
 var _margins: MarginContainer
+var _frame: VBoxContainer
 var _scroll: ScrollContainer
 var _body: BoxContainer
 var _info: ScrollContainer
@@ -55,17 +56,17 @@ func _ready() -> void:
 	add_theme_stylebox_override("panel", background)
 	_margins = MarginContainer.new()
 	add_child(_margins)
-	var frame := VBoxContainer.new()
-	_margins.add_child(frame)
+	_frame = VBoxContainer.new()
+	_margins.add_child(_frame)
 	var header := HBoxContainer.new()
-	frame.add_child(header)
+	_frame.add_child(header)
 	_turn = _label(header, "Turn", "SAILOR MAN - PRACTICE DUEL")
 	_turn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pause = _button(header, "PauseDuel", "Pause", func() -> void: pause_requested.emit())
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	frame.add_child(_scroll)
+	_frame.add_child(_scroll)
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -144,6 +145,15 @@ func _ready() -> void:
 func mount_input(input: Control) -> void:
 	input.reparent(_input_box)
 	input.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fit()
+
+
+## Reuse the shell's caption below the scroller, not inside its hidden HUD.
+func mount_audio_caption(caption: Control) -> void:
+	caption.reparent(_frame)
+	caption.custom_minimum_size = Vector2.ZERO
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ui_unit = 0.0
 	_fit()
 
 

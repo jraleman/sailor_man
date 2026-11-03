@@ -329,8 +329,18 @@ mobile permissions, authentic recordings and cultural review remain unverified.
       quiebre diamonds use scorer evidence and disappear with intense effects off.
 - [ ] Arena modifiers (§5.3): lock clock, lake Repeat, Culebra echo
       (600 ms, self-duel boss), Pacific five-judge panel.
-- [ ] `audio/sailor_audio.gd` — conch, lock horn, water roar, crowd, paddle
-      clack, mula bell, cruise-only music bed.
+- [x] `audio/sailor_audio.gd` — original synthesized lock horn, water wash,
+      applause, paddle clack and mula bell on game-owned SFX players.
+- [x] Quiet input states and once-only event feedback: no environmental audio
+      under reference/repeat, guard, listening, Soundcheck or Practice. Selecting
+      Microphone silences it before Enable; completion stops capture first.
+- [x] Meaningful combined audio captions in the visible, responsive duel HUD,
+      independent of SFX mute; the persistent YA header leaves listening room clear.
+- [x] `tests/sailor_audio_test.gd` and real-duel regressions for PCM/seams,
+      context cancellation, captions, guarded input and genuine timeout feedback.
+- [ ] Production conch-style ready cue, preserving the above-band cue/guard
+      contract and only after separate bleed validation.
+- [ ] Optional cruise-only music bed when cruise flow exists; no duel music.
 - [x] `tests/canal_view_test.gd` *(window)* — both boats in shot, ribbon
       readable, < 60 draw calls, portrait → ultrawide, Remo lane clear of the singers.
 - [x] **Practice-lock exit:** all game/framework/native suites pass; refreshed
@@ -359,8 +369,26 @@ shell results: **87.0470/100** for the answer (Eco **0.621341**) and
 with a new 640x360 WebP poster. Reimport and both headless/native instructions-
 video checks passed. No microphone was opened. Existing shared-audio shutdown
 diagnostics and the Saves suite's deliberate damaged-backup parse errors remain.
-Other arenas/modifiers/audio, physical-device/browser/mobile QA, authentic
+Other arenas/modifiers, production audio, physical-device/browser/mobile QA, authentic
 recordings and cultural review are still open.
+
+**Canal-audio follow-up:** all **eleven** game suites and all **15** framework
+suites passed with isolated profiles and Dummy audio; ten game suites support
+headless runs and the canal suite requires a window. All four native runs also
+passed. The duel verifies actual visible, wrapped verdict captions at all eight
+size/UI combinations, with the full compact input ribbon retained; requests
+alone were insufficient because the shell's default margins are hidden here.
+The existing shell caption is now mounted in the duel, not duplicated.
+
+PCM checks cover deterministic original clips, headroom/DC, smooth ends and
+the water seam. Real events cover muted-SFX captions, once-only review/tanda/
+completion feedback, source/room/setup silence, reference/repeat, guard,
+listening, pause, focus, replay and teardown. Incoming menu music is stopped;
+no microphone opens automatically and no scoring/clock rules changed.
+Final own-audio checks have no shutdown warnings; existing shared UI-audio
+diagnostics and the Saves negative cases remain. No physical output, room-tail,
+device/permission, authentic-voice or cultural gate is thereby checked off.
+The walkthrough remains silent with its existing visual/caption flow.
 
 ## Milestone 6 — Voices (§11) — blocked on §15.2
 
