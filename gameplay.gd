@@ -15,6 +15,7 @@ const VoiceRest = preload("res://games/sailor_man/voice/voice_rest.gd")
 const Soundcheck = preload("res://games/sailor_man/ui/soundcheck.tscn")
 const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
 const Ribbon = preload("res://games/sailor_man/world/voice_ribbon.gd")
+const Outfit = preload("res://games/sailor_man/world/launch_outfit.gd")
 
 @onready var _spike: Control = %ScorerSpike
 @onready var _duel_hud: Control = %DuelHud
@@ -54,6 +55,8 @@ var _voice_rest := VoiceRest.new()
 var _solo_voice_rest := _voice_rest
 var _seat_rest: Array[VoiceRest] = [VoiceRest.new(), VoiceRest.new()]
 var _best_turn_art: Array[Dictionary] = [{}, {}]
+var _launch_outfits: Array[Dictionary] = [{}, {}]
+var _finished_outfits: Array[Dictionary] = []
 
 
 ## Keep the manifest and shell identity on the same stable key.
@@ -100,6 +103,7 @@ func _build_playfield() -> void:
 	_duel_hud.connect("rest_remo_requested", _on_rest_remo)
 	_duel_hud.connect("practice_requested", _open_practice)
 	_duel_hud.connect("pause_requested", open_pause_menu)
+	Store.equipped_changed.connect(_on_outfit_changed)
 	_rival_tone = Tone.new()
 	add_child(_rival_tone)
 	_cue = Cue.new()
@@ -126,6 +130,7 @@ func _reset_round_state() -> void:
 	_calls = 0
 	_duel_seconds = 0.0
 	_best_turn_art = [{}, {}]
+	_finished_outfits.clear()
 	var arena := Arenas.arena(str(GameSession.selected_level().get("id", Arenas.GATUN)))
 	_hot_seat = not _practice and GameSession.player_two_enabled() \
 		and not GameSession.player_two_is_cpu()
@@ -146,6 +151,7 @@ func _reset_round_state() -> void:
 	_rival_tone.volume_db = Tone.VOLUME_DB - (6.0 if _echo_challenge else 0.0)
 	_resolve_source()
 	_duel_hud.call("configure_arena", str(arena["id"]))
+	_sync_launch_outfits()
 	_duel_hud.call("set_player_names",
 		PackedStringArray([_player_name(PLAYER_ONE), _player_name(PLAYER_TWO)]))
 	_duel_hud.call("reset_view")
@@ -194,12 +200,47 @@ func _update_round(delta: float, _time_left: float) -> void:
 	_apply_phase()
 
 
+## Repeated results input cannot pay the same duel or record it twice.
+func _end_round() -> void:
+	if _round_active:
+		super()
+
+
 func _finish_round() -> void:
+	_finished_outfits = _launch_outfits.slice(0, 2 if _hot_seat else 1).duplicate(true)
 	_close_soundcheck()
 	_spike.call("stop_capture")
 	_stop_sounds()
 	_spike.hide()
 	_duel_hud.hide()
+
+
+func _sync_launch_outfits() -> void:
+	var selected: Array[Dictionary] = []
+	for seat in 2:
+		selected.append(Outfit.equipped(Store, seat) \
+			if seat == 0 or _hot_seat else Outfit.complete({}))
+	if bool(_duel_hud.call("set_outfits", selected)):
+		_launch_outfits = selected
+	else:
+		_message = "This saved launch outfit is unavailable. Choose another in Store."
+		_sync_hud()
+
+
+func _on_outfit_changed(source_game: String, _slot: String, _item: String) -> void:
+	if source_game == Options.GAME_ID:
+		_sync_launch_outfits()
+
+
+## The game-owned rival is not GameSession's CPU; only scored humans earn currency.
+func _round_points_earned(_one: int, _two: int) -> int:
+	if _practice or _duel.phase != Duel.Phase.COMPLETE or _duel.reason != "two_tandas":
+		return 0
+	var best := maxi(_duel.points[0], _duel.points[1]) if _hot_seat else _duel.points[0]
+	var earned := roundi(float(best) * float(Options.STORE_CURRENCY["points_per_score"]))
+	if not _hot_seat and not _duel.echo_challenge and _duel.winner == Duel.Singer.PLAYER:
+		earned += int(Options.STORE_CURRENCY["win_bonus"])
+	return earned
 
 
 func _configure_mode_ui() -> void:
@@ -410,6 +451,8 @@ func _share_payload() -> Dictionary:
 			"winner": _duel.winner, "completed": _duel.winner >= 0, "players": players,
 		},
 		"sailor_art": _best_turn_art.slice(0, 2 if _hot_seat else 1).duplicate(true),
+		"sailor_outfits": (_launch_outfits.slice(0, 2 if _hot_seat else 1)
+			if _finished_outfits.is_empty() else _finished_outfits).duplicate(true),
 	}, true)
 	if _practice:
 		data.merge({
@@ -429,17 +472,19 @@ func _share_payload() -> Dictionary:
 func _round_highlight_summary() -> String:
 	if _practice:
 		return "%d test calls checked. Real-voice validation is still pending." % _calls
+	var notes := "" if _round_progression_notes.is_empty() else \
+		"\n" + " / ".join(_round_progression_notes)
 	if _hot_seat:
 		return "Tandas P1 %d - %d P2 | Best turns: P1 %.1f, P2 %.1f / 100" % [
 			_duel.wins[0], _duel.wins[1],
 			float(_player_stats(PLAYER_ONE)["best_turn"]) * 100.0,
 			float(_player_stats(PLAYER_TWO)["best_turn"]) * 100.0,
-		]
+		] + notes
 	var stats := _player_stats(PLAYER_ONE)
 	return "P1 %d - %d %s | Best %.1f/100 | %d breaks | Breath %.2f s | %s" % [
 		_duel.wins[0], _duel.wins[1], _opponent_label(), float(stats["best_turn"]) * 100.0,
 		int(stats["quiebres"]), float(stats["longest_breath"]), stats["source"],
-	]
+	] + notes
 
 
 func _describe_round_outcome(_one: int, _two: int) -> Dictionary:

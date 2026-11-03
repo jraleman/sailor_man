@@ -74,6 +74,7 @@ func _run() -> void:
 	wizard.set_process(false)
 	_expect(wizard.get("_capture") == null and AudioServer.bus_count == buses,
 		"Opening Soundcheck must leave microphone permissions and hardware untouched.")
+	await _test_keyboard_navigation(wizard, settings)
 	var capture := BufferedCapture.new()
 	wizard.call("_begin_capture", capture)
 	capture.room()
@@ -114,6 +115,7 @@ func _run() -> void:
 	wizard = _open()
 	await process_frame
 	wizard.set_process(false)
+	await _test_keyboard_navigation(wizard, settings)
 	(wizard.get("_use_saved") as Button).pressed.emit()
 	_expect(wizard.get("_capture") == null and _transferred == null
 		and AudioServer.bus_count == buses,
@@ -507,6 +509,89 @@ func _test_layouts(wizard: Control, settings: Node) -> void:
 		and FileAccess.get_file_as_bytes(_profile_path) == before,
 		"A failed Save must reveal its error from the Call ribbon without changing the saved file.")
 	wizard.set("profile_path", _profile_path)
+
+
+func _test_keyboard_navigation(wizard: Control, settings: Node) -> void:
+	for frame in 6:
+		await process_frame
+	var back := wizard.find_child("BackSoundcheck", true, false) as Button
+	var scroll := wizard.get("_scroll") as ScrollContainer
+	var names := wizard.get("_names") as OptionButton
+	var device := wizard.get("_device") as OptionButton
+	var name := wizard.get("_name") as LineEdit
+	var original_name := name.text
+	var original_device := device.selected
+	var saved := FileAccess.get_file_as_bytes(_profile_path) \
+		if FileAccess.file_exists(_profile_path) else PackedByteArray()
+	var buses := AudioServer.bus_count
+	_expect(back.has_focus(),
+		"Soundcheck must open on its safe Back action, never silently focus microphone consent.")
+	_expect(names.accessibility_name.to_lower().contains("profile")
+		and device.accessibility_name.to_lower().contains("device")
+		and name.accessibility_name.to_lower().contains("profile"),
+		"Voice-profile, device and name fields must identify their purpose while focused.")
+	for scale: float in [1.0, 1.5]:
+		for dimensions in [
+			Vector2i(320, 568), Vector2i(568, 320),
+			Vector2i(1280, 720), Vector2i(2560, 1080),
+		]:
+			var values: Dictionary = settings.get("_values")
+			values["ui/scale"] = scale
+			get_root().size = dimensions
+			settings.call("_update_content_scale")
+			wizard.call("_fit")
+			scroll.scroll_vertical = 0
+			back.grab_focus()
+			for frame in 6:
+				await process_frame
+			var visited := PackedStringArray()
+			for step in 24:
+				var focused := get_root().gui_get_focus_owner()
+				if focused == null or not wizard.is_ancestor_of(focused):
+					_expect(false, "Soundcheck Tab navigation must remain inside the modal.")
+					break
+				visited.append(str(focused.name))
+				if scroll.is_ancestor_of(focused):
+					_expect(_native_rect(scroll).grow(1.0).encloses(_native_rect(focused)),
+						"%s must follow keyboard focus into the actual scroller at %s / %.1f UI."
+						% [focused.name, dimensions, scale])
+				var event := InputEventKey.new()
+				event.keycode = KEY_TAB
+				event.physical_keycode = KEY_TAB
+				event.pressed = true
+				Input.parse_input_event(event)
+				event = event.duplicate()
+				event.pressed = false
+				Input.parse_input_event(event)
+				for frame in 6:
+					await process_frame
+				if get_root().gui_get_focus_owner() == back:
+					break
+			for control: Control in [
+				name, device, names, wizard.get("_use_saved"), wizard.get("_enable"),
+				wizard.find_child("CalibrationRemo", true, false),
+			]:
+				if control is BaseButton and control.disabled:
+					continue
+				_expect(str(control.name) in visited,
+					"Keyboard-only Soundcheck must reach " + str(control.name) + ".")
+	_expect(wizard.get("_capture") == null and AudioServer.bus_count == buses
+		and name.text == original_name and device.selected == original_device
+		and (FileAccess.get_file_as_bytes(_profile_path)
+			if FileAccess.file_exists(_profile_path) else PackedByteArray()) == saved,
+		"Soundcheck keyboard browsing must not open capture or alter any calibration.")
+	get_root().size = Vector2i(1280, 720)
+	var values: Dictionary = settings.get("_values")
+	values["ui/scale"] = 1.0
+	settings.call("_update_content_scale")
+	wizard.call("_fit")
+	for frame in 6:
+		await process_frame
+
+
+func _native_rect(control: Control) -> Rect2:
+	return get_root().get_final_transform() * control.get_global_transform_with_canvas() \
+		* Rect2(Vector2.ZERO, control.size)
 
 
 func _expect(condition: bool, message: String) -> void:

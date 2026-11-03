@@ -83,6 +83,9 @@ func _ready() -> void:
 	_ribbon.set("source", _remo)
 	_ribbon.set("break_button", %RemoBreak)
 	_ribbon.connect("turn_requested", _start_remo)
+	for spin: SpinBox in [_chest, _carry]:
+		spin.get_line_edit().accessibility_name = spin.accessibility_name
+		spin.get_line_edit().accessibility_description = spin.accessibility_description
 	_remo_tone = RemoTone.new()
 	add_child(_remo_tone)
 	(%ShapedExample as Button).pressed.connect(load_example.bind(true))
@@ -134,12 +137,20 @@ func _process(delta: float) -> void:
 	_track.append_array(_source.push_frames(_admit_pcm(frames), _analysis_budget))
 	_publish_duel_frames()
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
-	_status.text = "Finishing captured audio..." if _finishing else \
-		"Listening: %.1f / %.0f s. Stop whenever comfortable." % [_elapsed, _window]
+	if _finishing:
+		_set_status("Finishing captured audio...")
+	else:
+		_set_status("Listening: %.1f / %.0f s. Stop whenever comfortable."
+			% [_elapsed, _window], false)
 	if _finishing:
 		_complete_recording()
 	elif _elapsed >= _window:
 		_finish_recording()
+
+
+func _set_status(text: String, announce := true) -> void:
+	_status.accessibility_live = 1 if announce else 0
+	_status.text = text
 
 
 func _input(event: InputEvent) -> void:
@@ -169,7 +180,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 ## Deliberately synthetic visual fixtures, never a stand-in for a cast rival.
 func load_example(shaped: bool) -> void:
 	if _duel_mode:
-		_status.text = "Synthetic examples belong to Practice, not a scored duel turn."
+		_set_status("Synthetic examples belong to Practice, not a scored duel turn.")
 		return
 	_cancel_recording()
 	_cancel_remo()
@@ -189,7 +200,7 @@ func load_example(shaped: bool) -> void:
 		_track.append(Frame.make(t, pitch, t < 5.0, 1.0 if t < 5.0 else 0.0))
 	if not _judge():
 		return
-	_status.text = (
+	_set_status(
 		"SYNTHETIC shaped fixture - not a saloma recording."
 		if shaped else "SYNTHETIC flat hold - not a saloma recording."
 	)
@@ -201,11 +212,11 @@ func keep_reference() -> void:
 		_recording or _remo_active or _track.is_empty()
 		or not bool(_last_result.get("valid", false))
 	):
-		_status.text = "Finish and score a valid call before keeping a reference."
+		_set_status("Finish and score a valid call before keeping a reference.")
 		return
 	_reference = _track.duplicate(true)
 	_clear_reference.disabled = false
-	_status.text = "Reference kept. Try Remo, record or load the next answer to test Eco."
+	_set_status("Reference kept. Try Remo, record or load the next answer to test Eco.")
 	_ribbon.call("show_tracks", _track, _reference, _last_result.get("evidence", {}), _window)
 
 
@@ -213,7 +224,7 @@ func keep_reference() -> void:
 func clear_reference() -> void:
 	_reference.clear()
 	_clear_reference.disabled = true
-	_status.text = "Reference cleared. The next performance is a call."
+	_set_status("Reference cleared. The next performance is a call.")
 	_ribbon.call("show_tracks", _track, _reference, _last_result.get("evidence", {}), _window)
 
 
@@ -224,7 +235,7 @@ func reset_session() -> void:
 	_reference.clear()
 	_last_result.clear()
 	_marks.text = "No call scored yet. Try Remo, enable a microphone or load an example."
-	_status.text = "Microphone off. Start a Remo call or hold the ribbon; no microphone needed."
+	_set_status("Microphone off. Start a Remo call or hold the ribbon; no microphone needed.")
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_update_controls()
 
@@ -250,7 +261,7 @@ func microphone_ready() -> bool:
 func set_voice_profile(profile: Dictionary) -> String:
 	var error := Calibration.profile_error(profile) if not profile.is_empty() else ""
 	if not error.is_empty():
-		_status.text = error
+		_set_status(error)
 		push_warning("Sailor Man input profile: %s" % error)
 		return error
 	stop_capture()
@@ -261,8 +272,10 @@ func set_voice_profile(profile: Dictionary) -> String:
 		for index in _device.item_count:
 			if _device.get_item_text(index) == str(profile["device"]):
 				_device.select(index)
-	_status.text = "Voice profile loaded. The microphone remains off." if not profile.is_empty() \
+	_set_status(
+		"Voice profile loaded. The microphone remains off." if not profile.is_empty()
 		else "No saved voice profile. Soundcheck is optional; Remo works without a microphone."
+	)
 	_reload_options()
 	_update_controls()
 	return ""
@@ -284,7 +297,7 @@ func adopt_capture(capture: Node, profile: Dictionary) -> String:
 func begin_duel_turn(reference: Array[Dictionary]) -> bool:
 	assert(_duel_mode)
 	if _duel_microphone and not microphone_ready():
-		_status.text = "Enable the microphone and finish its room check, or use Remo."
+		_set_status("Enable the microphone and finish its room check, or use Remo.")
 		_duel_fail(_status.text)
 		return false
 	_reference = reference.duplicate(true)
@@ -332,7 +345,7 @@ func stop_capture() -> void:
 		_capture.queue_free()
 	_capture = null
 	if is_instance_valid(_status):
-		_status.text = "Microphone disconnected. Enable it again when ready."
+		_set_status("Microphone disconnected. Enable it again when ready.")
 		_update_controls()
 
 
@@ -345,14 +358,14 @@ func _toggle_microphone() -> void:
 		soundcheck_requested.emit()
 		return
 	if _device.item_count == 0:
-		_status.text = "No input device is available. Remo needs no microphone."
+		_set_status("No input device is available. Remo needs no microphone.")
 		_update_controls()
 		return
 	_capture = Capture.new()
 	_capture.connect("calibrated", _on_calibrated)
 	_capture.connect("capture_failed", _on_capture_failed)
 	add_child(_capture)
-	_status.text = "Room check: stay quiet for two seconds. Headphones are recommended."
+	_set_status("Room check: stay quiet for two seconds. Headphones are recommended.")
 	_capture.call("start", _device.get_item_text(_device.selected))
 	_update_controls()
 
@@ -370,16 +383,16 @@ func _on_calibrated(noise_floor: float) -> void:
 			_on_capture_failed("The room is above this profile's measured voice levels. "
 				+ "Try Soundcheck for this room, or use Remo.")
 			return
-		_status.text = "Room checked; the saved voice range and levels are ready. " \
-			+ "Use a comfortable voice, or choose Remo."
+		_set_status("Room checked; the saved voice range and levels are ready. "
+			+ "Use a comfortable voice, or choose Remo.")
 		_update_controls()
 		return
-	_status.text = (
+	_set_status(
 		"Room check complete. Set a comfortable chest reference, then Record. "
 		+ "This is not yet a full vocal-range calibration."
 	)
 	if _duel_mode:
-		_status.text = (
+		_set_status(
 			"Room check complete. Set a comfortable chest reference, then press Ready "
 			+ "for your turn. This is not a full vocal-range calibration."
 		)
@@ -388,21 +401,21 @@ func _on_calibrated(noise_floor: float) -> void:
 
 func _on_capture_failed(reason: String) -> void:
 	stop_capture()
-	_status.text = reason
+	_set_status(reason)
 	_duel_fail(reason)
 	microphone_failed.emit(reason)
 
 
 func _toggle_recording() -> void:
 	if _duel_mode and (not _duel_turn_open or not _duel_microphone):
-		_status.text = "Recording is available only in an admitted Microphone turn."
+		_set_status("Recording is available only in an admitted Microphone turn.")
 		return
 	_cancel_remo()
 	if _recording:
 		_finish_recording()
 		return
 	if _capture == null or not bool(_capture.call("is_ready")):
-		_status.text = "Enable the microphone and finish the room check first."
+		_set_status("Enable the microphone and finish the room check first.")
 		_update_controls()
 		return
 	if _human_profile.is_empty():
@@ -412,7 +425,7 @@ func _toggle_recording() -> void:
 		_profile = Calibration.scoring_profile(_human_profile, _quiet)
 	var error := Frame.profile_error(_profile)
 	if not error.is_empty():
-		_status.text = error
+		_set_status(error)
 		_update_controls()
 		return
 	_capture.call("discard")
@@ -425,6 +438,7 @@ func _toggle_recording() -> void:
 	_finishing = false
 	_recording = true
 	_marks.text = "Listening. Use a comfortable voice; extra volume earns nothing."
+	_set_status(_marks.text)
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	_ribbon.call("set_profile", _profile)
 	_update_controls()
@@ -465,7 +479,7 @@ func _complete_recording() -> void:
 			+ "microphone device and permission."
 		)
 		_last_result = {"valid": false, "error": error}
-		_status.text = error
+		_set_status(error)
 		_marks.text = "No call scored."
 		push_warning("Sailor Man recording: %s" % error)
 		_update_controls()
@@ -477,7 +491,7 @@ func _complete_recording() -> void:
 	for frame: Dictionary in _track:
 		voiced = voiced or bool(frame["voiced"])
 	microphone_turn_completed.emit(voiced)
-	_status.text = (
+	_set_status(
 		"Call scored. Rest whenever needed; try the synthetic examples instead."
 		if float(_last_result.get("total", 0.0)) > 0.0
 		else "No voiced input was detected. Check the device or try a synthetic example."
@@ -495,6 +509,7 @@ func _cancel_recording() -> void:
 		_track.clear()
 		_last_result.clear()
 		_marks.text = "Call cancelled. No score recorded."
+		_set_status(_marks.text)
 		_ribbon.call("show_tracks", _track, _reference, {}, _window)
 		_duel_fail("Microphone turn cancelled. Ready again to retry the same turn.")
 
@@ -508,7 +523,7 @@ func _toggle_remo() -> void:
 
 func _start_remo() -> void:
 	if _duel_mode and (not _duel_turn_open or _duel_microphone):
-		_status.text = "Remo is available only in an admitted Remo turn."
+		_set_status("Remo is available only in an admitted Remo turn.")
 		return
 	stop_capture()
 	_profile = RemoSource.profile()
@@ -519,7 +534,7 @@ func _start_remo() -> void:
 	_remo.begin()
 	_remo_active = true
 	_marks.text = "Remo listening. Hold Voice, shape the pitch, then finish."
-	_status.text = "Remo uses buttons or touch, not your microphone. Preview: synthetic tone."
+	_set_status("Remo uses buttons or touch, not your microphone. Preview: synthetic tone.")
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
 	if _duel_mode:
 		_ribbon.grab_focus.call_deferred()
@@ -538,9 +553,8 @@ func _process_remo(delta: float) -> void:
 	if not frames.is_empty():
 		_remo_tone.play_frame(frames[-1])
 	_ribbon.call("show_tracks", _track, _reference, {}, _window)
-	_status.text = "Remo: %.1f / %.0f s | Synthetic tone, not a captain recording." % [
-		_elapsed, _window,
-	]
+	_set_status("Remo: %.1f / %.0f s | Synthetic tone, not a captain recording."
+		% [_elapsed, _window], false)
 	if _remo.is_finished() or _elapsed >= _window:
 		_finish_remo()
 
@@ -552,13 +566,15 @@ func _finish_remo() -> void:
 	_remo.finish()
 	_remo_tone.stop()
 	if _track.is_empty():
-		_status.text = "No Remo frames captured. Start a call and hold Voice or the ribbon."
+		_set_status("No Remo frames captured. Start a call and hold Voice or the ribbon.")
 		_marks.text = "No call scored."
 		_update_controls()
 		_duel_fail(_status.text)
 		return
 	if _judge():
-		_status.text = "Remo scored by the shared saloma scorer. Keep it as a reference to test Eco."
+		_set_status(
+			"Remo scored by the shared saloma scorer. Keep it as a reference to test Eco."
+		)
 
 
 func _cancel_remo() -> void:
@@ -566,6 +582,7 @@ func _cancel_remo() -> void:
 		_track.clear()
 		_last_result.clear()
 		_marks.text = "Remo call cancelled. No score recorded."
+		_set_status(_marks.text)
 		_ribbon.call("show_tracks", _track, _reference, {}, _window)
 		_duel_fail("Remo turn cancelled. Ready again to retry the same turn.")
 	_remo_active = false
@@ -632,14 +649,14 @@ func _on_joy_connection_changed(device: int, connected: bool) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and _remo_active:
 		_cancel_remo()
-		_status.text = "Remo cancelled when the window lost focus. Start again when ready."
+		_set_status("Remo cancelled when the window lost focus. Start again when ready.")
 		_update_controls()
 
 
 func _judge() -> bool:
 	_last_result = Scorer.score(_track, _profile, _reference, _quiet)
 	if not bool(_last_result["valid"]):
-		_status.text = str(_last_result["error"])
+		_set_status(str(_last_result["error"]))
 		_marks.text = "No call scored."
 		_update_controls()
 		_duel_fail(_status.text)

@@ -7,12 +7,15 @@ const Boat = preload("res://games/sailor_man/world/boat_rig.gd")
 const Builder = preload("res://games/sailor_man/world/mesh_builder.gd")
 const Style = preload("res://games/sailor_man/world/canal_style.gd")
 const Identity = preload("res://scripts/player_identity.gd")
+const Outfit = preload("res://games/sailor_man/world/launch_outfit.gd")
 
 var portraits: Array[Dictionary] = []
 var _layout: VBoxContainer
 var _turns: Array = []
 var _hot_seat := false
 var _scorer := false
+var _outfits: Array[Dictionary] = []
+var _outfit_error := ""
 
 
 func _ready() -> void:
@@ -36,6 +39,24 @@ func configure(data: Dictionary) -> void:
 		_turns = supplied.duplicate(true)
 	_hot_seat = str(data.get("sailor_mode", "")) == "hot_seat"
 	_scorer = str(data.get("sailor_mode", "")) == "scorer"
+	_outfits.clear()
+	_outfit_error = ""
+	var supplied_outfits: Variant = data.get("sailor_outfits", [])
+	if not supplied_outfits is Array:
+		_outfit_error = "Share launch outfits need an array of cosmetic ids."
+	else:
+		for singer in 2 if _hot_seat else 1:
+			var selected: Variant = supplied_outfits[singer] \
+				if singer < supplied_outfits.size() else {}
+			if not selected is Dictionary:
+				_outfit_error = "Each share launch needs a cosmetic-id dictionary."
+				break
+			_outfit_error = Outfit.validate(selected)
+			if not _outfit_error.is_empty():
+				break
+			_outfits.append(Outfit.complete(selected))
+	if not _outfit_error.is_empty():
+		push_error("Sailor share: " + _outfit_error)
 	if is_node_ready():
 		_install_portraits()
 
@@ -49,6 +70,12 @@ func _install_portraits() -> void:
 		_layout.remove_child(row)
 		row.queue_free()
 	portraits.clear()
+	if not _outfit_error.is_empty():
+		var error := Label.new()
+		error.text = "This share launch outfit is unavailable."
+		error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_layout.add_child(error)
+		return
 	for singer in 2 if _hot_seat else 1:
 		var turn: Dictionary = _turns[singer] if singer < _turns.size() else {}
 		var row := VBoxContainer.new()
@@ -112,6 +139,8 @@ func _make_portrait(singer: int, turn: Dictionary) -> Dictionary:
 	light.light_energy = 1.1
 	world.add_child(light)
 	var boat := Boat.new(singer, "P%d" % (singer + 1))
+	if singer < _outfits.size():
+		boat.set_outfit(_outfits[singer])
 	var side := -1.0 if singer == 0 else 1.0
 	boat.position = Vector3(side, 0, 0)
 	boat.rotation.y = 0.55 if singer == 0 else -0.55

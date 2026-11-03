@@ -5,7 +5,8 @@ A saloma call-and-response game in development. The prototype offers
 Culebra self-echo challenge and **two-human hot seat**, using the same scorer,
 Remo or an opt-in microphone. The finished canal campaign and recorded rival
 crews are not implemented. A free gallery displays eleven of the current
-original boat, lock and scenery models.
+original boat, lock and scenery models. Completed duels earn Balboas for an
+original toy cosmetics shop with separate P1/P2 outfits.
 
 ## Run the prototype
 
@@ -16,6 +17,7 @@ godot --headless --path . --import
 godot --path . -- --game=sailor_man
 ```
 
+The standalone opening waits for **Next**/**Done**, or **Skip** to the title.
 Choose **Play**, then **Single Player** or two-human **Multiplayer**, select a
 **Practice arena** in setup, and begin. All five are freely selectable;
 these are not unlocked voyage levels. Solo's **Practice** opens the full scorer
@@ -25,6 +27,99 @@ workbench without the shell:
 ```powershell
 godot --path . res://games/sailor_man/tools/scorer_spike.tscn -- --game=sailor_man
 ```
+
+## Practice opening and written Guide
+
+Standalone boot shows three player-paced cards using the actual static toy
+lock and P1/P2 launches: **Free canal practice**, **Shape the call** and
+**Take turns, stay comfortable**. There is no automatic advance. **Next**
+becomes **Done** on card three; Done and the always-available **Skip** lead to
+the normal title, never directly into a match. Escape or controller B skips.
+Controller left/right focuses Skip/Next, A activates it, and up/down scrolls
+the copy. Keyboard, mouse and touch use the same visible actions.
+
+The opening is registered through `intro_scene_path`, so a collection retains
+the framework intro. It uses no narration, voice source, profile/performance
+data, campaign state or first-run save. Models stay static; card changes use
+only an optional opacity fade, cancelled immediately by Reduced motion.
+Hidden/finished stages stop rendering.
+
+After setup, **Guide** opens the shared scrollable written briefing, keeping
+the real solo/hot-seat rules and current rebindable controls. Its five marks
+describe existing game mechanics, not a cultural definition:
+
+| Mark | Game meaning |
+| --- | --- |
+| Aliento | Longest continuous voiced span, saturated at five seconds; stop whenever comfortable, not when a target demands it |
+| Quiebre | Clean chest/high-register jumps; Remo's Break changes register |
+| Altura | Source/profile-relative pitch span, not absolute Hz; an unmeasured microphone band remains provisional |
+| Remate | Falling glide or crisp finish; grito belongs here, not to a sixth action |
+| Eco | Match the caller's relative contour when answering; calls omit Eco |
+
+Extra loudness earns nothing. Quiet Mode removes the carrying-level gate;
+Remo needs no voice. The Guide keeps Start visible on short enlarged-UI
+screens by compacting its context row and using **On start**; full context
+remains in tooltips/accessibility text. The five-card campaign story, cultural
+review and recorded rivals remain pending.
+
+## Setup launch preview
+
+The shared setup plinth shows the actual player launch and plain toy crew.
+**Practice launch** is the only prototype entry, not a production captain
+roster or a gameplay modifier. Focusing P1 or P2's row shows their blue/red
+launch, equipped cosmetics, explicit P1/P2 plaque and matching identity ring;
+solo uses P1.
+
+The transparent Compatibility preview is static and only the featured seat
+renders. It opens no microphone, reads no voice/profile/performance data and
+writes no options or progress. Production captains and recorded voices remain
+pending. Setup's compact arena summary gives the judge count and free access;
+**Details** explains the different solo/hot-seat clock rules. The briefing and
+choices scroll together, including on short screens and with enlarged UI.
+
+## Prototype cosmetics shop
+
+Open **Store** from the standalone title or the running game's pause menu.
+The twelve-item catalogue has four free original defaults and eight paid
+original toy designs. No item changes voice, scoring, judges or arena access.
+There is no traditional dress, mola pattern, recorded captain or cultural gate.
+
+| Kind | Free original default | Paid designs (Balboas) |
+| --- | --- | --- |
+| Hat | Plain crew, bare-headed | Deck cap 8; Toy sun hat 12 |
+| Pennant | Player pennant | Cream stripes 8; Toy bunting 12 |
+| Hull paint | Player hull | Cream lower hull 10; Deep lower hull 14 |
+| Bow | Plain bow | Toy fish 12; Bow star 14 |
+
+P1 and P2 have independent hat/pennant/paint/bow slots, using stable `p1_` /
+`p2_` ids. **Ownership and the Balboas wallet are shared within Sailor Man**:
+buy once and equip either or both singers without buying again. A purchase
+auto-equips the first matching still-default slot; the card's P1/P2 buttons
+choose the other slots explicitly. The existing Store saves wallet, ownership
+and equipment in the game's slice of `user://store.cfg`, not settings or
+calibration. Other games keep their own wallets.
+
+A normally completed best-of-three duel pays
+**`round(best human's accumulated judge points / 10)`**, including losses and
+self-echo. Hot seat uses the higher human's total, not the sum, and pays the
+shared wallet once. An ordinary solo win against the synthetic skiff adds
+**5 Balboas**; echo/hot seat have no win bonus. Results display the payout.
+Workbench sessions, seeds, unfinished/abandoned duels and chamber timeouts pay
+nothing. Synthetic-rival points never fund the human wallet.
+
+Valid silence is different from missing/failed capture: every valid judge
+paddle has the existing minimum of one. A completed three-judge silent loss
+can therefore total six human judge points and pay one Balboa; this does not
+change the scorer or reward extra amplitude.
+
+The actual game-owned meshes show equipped outfits in gameplay, setup and
+gallery. Hull finishes retain upper player paint, roof, shirt, pennant and
+explicit P1/P2 identity; the synthetic skiff/echo remains plain. Shop previews
+are static P1 advertisements. Finished share cards freeze both humans' actual
+cosmetic ids, so later equipment changes cannot rewrite a requested card.
+The four defaults retain the original launch/icon/tutorial appearance.
+Production captains, reviewed traditional assets and campaign gates remain
+separate work.
 
 ## The practice duel
 
@@ -135,9 +230,9 @@ campaign encounters. Culebra's optional self-echo challenge uses a completed
 pitch-track snapshot, never delayed microphone audio or live monitoring.
 Both boats retain blue/red paint, pennants and explicit **P1 / CPU**, **ECHO**
 or **P2** labels appropriate to the selected mode.
-Their plain toy crew imply no named captain or traditional costume. The same
-boat rig exposes empty hat/bow attachment slots for later cosmetics; no shop
-is implemented.
+Their toy crew imply no named captain or traditional costume. The same batched
+boat rig draws the human's equipped toy cosmetics without changing its mouth,
+attachment anchors or scoring. The synthetic opponent keeps the original outfit.
 
 The camera eases modestly toward the performing singer while keeping both
 complete boats in shot. The admitted pitch track unrolls from the crew's
@@ -191,6 +286,8 @@ menu. All eleven exhibits are free: P1's launch, the synthetic skiff, both
 human launches, a mula on rails, the gate leaves, one canopy howler and all
 five practice dioramas. These are the match's actual meshes, not replacement
 promotional models, recorded crews or culturally reviewed assets.
+Human launch exhibits show their equipped outfits; the synthetic skiff remains
+plain. Changing equipment preserves the current orbit.
 
 The shared viewer supplies mouse/touch/keyboard/gamepad orbit, zoom and reset,
 with descriptions and input help in tooltips. It also advances auto-spin through
@@ -322,6 +419,21 @@ without microphone permission. **Keep reference** retains a call in memory;
 the next Remo call, recording or example is an answer and can earn Eco.
 **Finish session** opens the shell's results, and replay clears the session.
 
+## Keyboard navigation and feedback
+
+Practice and Soundcheck scroll with keyboard focus, keeping focused buttons
+and editors wholly visible from portrait phones to ultrawide at 150% UI size.
+Soundcheck initially focuses **Back**, not microphone consent. Opening or
+browsing it does not request access. The temporary numeric editors and
+Soundcheck's profile, device and name fields identify their purpose; the duel's
+profile picker identifies the active singer and selected calibration.
+
+The workbench's visible Remo/microphone timer keeps updating without continuous
+live announcements. Stable status, completion and errors use polite live-region
+metadata. These checks validate actual focus and metadata, not screen-reader
+speech or physical hardware. Controller-only navigation across all shared
+menus remains outside this slice.
+
 ## Soundcheck and saved voice profiles
 
 The game-owned **Soundcheck** button opens a pre-duel overlay, also available
@@ -392,6 +504,8 @@ Replay drops it without mutating an already requested card. The saved PNG shows
 the ribbon, but exports no PCM, full pitch-frame/profile files or text/EXIF
 metadata. `sailor_stats` contains domain statistics; `sailor_art` is renderer-only
 geometry, not a payload for a future publisher.
+The renderer-only `sailor_outfits` ids are frozen at results too; artwork never
+reads live shop equipment.
 The QR currently opens **https://deskcansaw.com**, labelled **Discover more
 games**. No public run record is published; there is no new stats endpoint.
 
@@ -412,12 +526,17 @@ games**. No public run record is published; there is no new stats endpoint.
   judges, with captured setup icons and no campaign gates.
 - Two-human hot seat through shared setup, named pass-the-mic cards, per-seat
   profile/source/rest state, guarded real input and untimed practice arenas.
+- A static setup-plinth preview of each human's actual launch and plain crew,
+  using the existing shared character-preview contract, not production captains.
+- Twelve original toy shop items, four cosmetic kinds and independent P1/P2
+  equipment, with a shared earned-Balboas wallet and once-only duel payout.
+  Actual gameplay/setup/gallery rigs and frozen share portraits wear the outfits.
 - Original boats, numeric P1/CPU/ECHO/P2 paddles, source-relative world ribbons,
   captions and responsive duel/input presentation.
 - Frozen share portraits for both actual humans, truthful duel/test statistics
   and the shell's memory-only preview / explicit PNG save.
 - Eleven free original-model gallery exhibits through the shared viewer,
-  with live orbit/zoom/reset, reduced-motion parking and no voice or save state.
+  with live orbit/zoom/reset, reduced-motion parking and no voice state or save writes.
 - Original owned canal SFX, microphone-quiet ambience rules and combined,
   responsive audio captions; no cruise music or performer samples.
 - Guided Soundcheck, named scalar profiles, saved source choice, optional
@@ -495,9 +614,10 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Fourteen suites cover the scorer, low/high-register equivalence, synthesized PCM,
+Seventeen suites cover the scorer, low/high-register equivalence, synthesized PCM,
 Remo parity, duel rules, calibration/persistence, canal audio, real scene/3D
-paths, rendered sharing, the free gallery and captured prototype branding.
+paths, rendered sharing, the free gallery, captured branding, setup previews,
+cosmetics/payouts and practice onboarding.
 Use `--audio-driver Dummy` for automated runs:
 
 ```powershell
@@ -513,6 +633,9 @@ godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene
 godot --headless --path . --script res://games/sailor_man/tests/sailor_audio_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/gallery_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/art_capture_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/character_preview_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/store_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/onboarding_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
@@ -520,16 +643,24 @@ godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --gam
 godot --path . --script res://games/sailor_man/tests/share_card_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/gallery_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/art_capture_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/character_preview_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/store_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/onboarding_test.gd -- --game=all
 ```
 
-The first twelve suites support headless runs. `canal_view_test.gd` and
+The first fifteen suites support headless runs. `canal_view_test.gd` and
 `share_card_test.gd` require a real graphics window and deliberately exit 1
-with `--headless`. Also run the three scene suites, gallery and art-capture
-suites with a window: seven windowed checks in total.
+with `--headless`. Also run the three scene suites, gallery, art-capture,
+setup-preview, store and onboarding suites with a window: ten windowed checks
+in total.
 Scene/canal/gallery checks cover rendering at
 320x568, 568x320, 1280x720
 and 2560x1080 with normal and 150% UI size. Tests do not enable a physical
-microphone. Buffered-PCM regressions distinguish absent data from actual
+microphone. Real Tab navigation checks eight workbench layouts and sixteen
+empty/loaded-profile Soundcheck layouts, including whole focused controls,
+actual numeric-editor names and capture/save isolation. Remo and buffered-PCM
+calls verify quiet timer metadata and polite stable start/completion/errors.
+Buffered-PCM regressions distinguish absent data from actual
 silence, check stall recovery and resumed buffers, and verify that pause/error
 paths cannot score or retain unfinished calls. The microphone core was adapted
 from DeskCanSaw's Dead Metal Jam; Sailor Man has no runtime dependency on it.
@@ -586,6 +717,44 @@ gold/blue pixels at 512, 64 and 32 pixels, with two measured draws against a
 ten-draw limit. The actual title, standing picker cartridge and share texture
 use the PNG without a colour tint. Pass
 `--sailor-icon-capture-dir=<absolute directory>` after `--` for inspections.
+
+Setup-preview checks use the real shared menu in collection and standalone,
+with solo and two-human selection, all five arenas, actual mesh reuse and
+canonical P1/P2 identity. Unknown prototypes, out-of-range seats and non-integer
+seats clear old geometry and fail visibly; their three errors are intentional.
+Native checks cover **25 cases**: solo/P1/P2 across the eight size/UI combinations,
+plus expanded Details on a 320px phone at 150%. They verify usable focused
+arena/player pickers and visible Start, complete geometry, actual paint/face/
+plaque pixels, static frames, hidden-render shutdown and no audio/save changes.
+The measured maximum is **3 draws** against a ten-draw limit. Pass
+`--sailor-setup-capture-dir=<absolute directory>` after `--` for UI/model captures.
+
+Shop checks exercise actual Buy/P2 Equip buttons, insufficient funds, one-time
+spending, shared ownership, independent equipment and real save reload.
+All twelve items run on both actual rigs: **24 model cases**. Native coverage
+includes **24 shelf previews** at two widths and **eight shop size/UI layouts**,
+with whole focused actions remaining scroll-accessible. Combined outfits are
+fully framed in match, setup, gallery and frozen share portraits; later equips
+cannot change old cards. Invalid data clears stale preview art and recovers
+visibly. The suite restores exact Store bytes/state and checks other games,
+settings, achievements, profiles and audio are untouched. Preview maximum is
+**3 draws**, below ten. Pass `--sailor-store-capture-dir=<absolute directory>`
+after `--` for shelf/shop/decorated-view captures. The duel suite settles
+**seven actual completed matches**, including losses, echo and both human
+winners, through the real results/payout path. It checks rounding boundaries,
+human-only totals, bonus exclusions and that a second settlement cannot pay again.
+
+Onboarding checks use actual Next/Done/Skip, Escape, controller, mouse and
+emulated touch input, including seven real Router exit paths and finishing
+during an incoming fade. They check player pacing, held-key repeats, live
+Reduced motion, static/hidden rendering and no voice/audio/save changes.
+The actual solo/hot-seat Guide retains all five definitions and live shared
+key rebinding. Native coverage is **40 layouts**: three cards and both Guide
+modes across four window sizes and normal/150% UI. Whole actions, physical
+text size, scroll-reachable final lines, complete model framing and actual
+pixels pass, with a measured maximum of **12 draws**, below 60.
+Pass `--sailor-onboarding-capture-dir=<absolute directory>` after `--` for
+opening/Guide captures.
 
 Self-echo checks cover rejected/paused/missing seeds, the complete 600 ms gap,
 frozen profiles/Quiet Mode, discarded idle PCM, softer synthetic playback,

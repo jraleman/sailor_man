@@ -43,6 +43,7 @@ var _load_error := ""
 var _margins: MarginContainer
 var _scroll: ScrollContainer
 var _title: Label
+var _back: Button
 var _step: Label
 var _prompt: Label
 var _status: Label
@@ -72,9 +73,10 @@ func _ready() -> void:
 	if not seat_tag.is_empty():
 		_title.text += " - " + seat_tag
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_button(header, "BackSoundcheck", "Back", _cancel)
+	_back = _button(header, "BackSoundcheck", "Back", _cancel)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.follow_focus = true
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_scroll)
 	var body := VBoxContainer.new()
@@ -87,6 +89,8 @@ func _ready() -> void:
 	_label(body, "ProfileTitle", "Saved voice profile")
 	_names = OptionButton.new()
 	_names.name = "VoiceProfiles"
+	_names.accessibility_name = "Saved voice profile"
+	_names.accessibility_description = "Choose scalar measurements, without enabling the microphone."
 	_names.fit_to_longest_item = false
 	_names.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	body.add_child(_names)
@@ -94,6 +98,8 @@ func _ready() -> void:
 	_label(body, "DeviceTitle", "Input device (off until Enable microphone)")
 	_device = OptionButton.new()
 	_device.name = "CalibrationDevice"
+	_device.accessibility_name = "Microphone input device"
+	_device.accessibility_description = "The microphone stays off until Enable microphone."
 	_device.fit_to_longest_item = false
 	_device.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	body.add_child(_device)
@@ -104,6 +110,8 @@ func _ready() -> void:
 	_label(body, "NameTitle", "Save as (replaces this named calibration)")
 	_name = LineEdit.new()
 	_name.name = "ProfileName"
+	_name.accessibility_name = "Calibration profile name"
+	_name.accessibility_description = "Only Save replaces the calibration with this name."
 	_name.text = seat_tag if not seat_tag.is_empty() else "P1"
 	_name.max_length = 40
 	_name.text_changed.connect(func(_text: String) -> void: _update())
@@ -153,6 +161,12 @@ func _ready() -> void:
 	_update()
 	_update.call_deferred()
 	_fit.call_deferred()
+	_focus_back.call_deferred()
+
+
+func _focus_back() -> void:
+	if not _closing and is_visible_in_tree():
+		_back.grab_focus()
 
 
 func _enable_microphone() -> void:

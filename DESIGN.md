@@ -40,6 +40,14 @@ clock/judge variants and scene-derived setup icons. Non-vocal canal audio is
 microphone-aware. Culebra now offers a separate, seeded self-echo challenge:
 best-of-three against a completed in-memory contour, not live microphone audio.
 The campaign encounters/progression and cruise music remain pending.
+Shared setup now displays the actual P1/P2 launch and plain crew on its plinth,
+through one free prototype entry. It reads no voice/profile data and does not
+implement the production captains below.
+Standalone boot now has three player-paced practice cards using those original
+models, with Next/Done/Skip and no narration, capture or campaign state. They
+end at the title; collection boot keeps the framework intro. The shared written
+Guide explains the five existing marks, live controls, comfort, Quiet Mode and
+provisional microphone bands. This is not the five-card campaign story below.
 Real place names are approved without
 authority branding; that does not verify geography or cultural claims.
 
@@ -98,7 +106,9 @@ finally land a clean quiebre, the whole canal cheers for them.
 
 ### Story (for the intro cards and `instructions_rules`)
 
-Five short cards, using the same intro shape as the other games:
+**Pending campaign copy, not the implemented practice opening.** These five
+story cards require the campaign and cultural review before becoming
+player-facing:
 
 1. In a village in Azuero, your grandmother's saloma could reach the next hill.
 2. This year the great saloma festival is on the Pacific shore, across the isthmus.
@@ -539,6 +549,11 @@ toward the existing rest reminder.
 
 ### 6.1 The player's captains (`characters`)
 
+**Current prototype:** only `practice_launch`, the actual player's launch and
+plain toy crew, is declared. Its static setup preview preserves canonical
+P1/P2 identity and has no voice, stats or persistence. The roster below remains
+blocked on production recordings and review.
+
 Shared mode select places the chosen captain on the plinth. Captains differ
 in **look and recorded voice** (for Remo mode and the share card), never in
 stats. Starting roster *(cast real voices, §11)*:
@@ -781,13 +796,40 @@ block one.
 
 ### 9.2 Store — currency "Balboas"
 
-Named after Panama's currency. `store_currency` pays about one Balboa per 10 judges'
-points, plus a win bonus against a CPU rival *(tune)*. Slots are **hat**
-(captain), **pennant** (boat flag), **paint** (hull) and **bow** (figurehead).
-Starter items: a straw hat (default), a sombrero pintao (gated behind
-`sailor_man_champion` and cultural review), a fisherman's cap, festival bunting,
-a red-and-white hull, a mola-pattern pennant *(verify with Guna design guidance — or cut)*,
-a conch-shell bow and a carved fish bow. Cosmetic only.
+**Implemented original-toy prototype:** the owner chose all four kinds,
+earned currency and independent P1/P2 outfits. Stable slots are `p1_hat`,
+`p1_pennant`, `p1_paint`, `p1_bow` and their `p2_` counterparts. One game's
+wallet/ownership are shared; equipment is not. Buy once to wear an item on
+either/both humans, with shared Store's first-still-default-slot auto-equip.
+All persistence uses the existing per-game `user://store.cfg` slice.
+
+Four free defaults preserve the original bare-headed crew, player pennant,
+blue/red hull and plain bow. Eight paid original designs are Deck cap (8),
+Toy sun hat (12), Cream stripes (8), Toy bunting (12), Cream lower hull (10),
+Deep lower hull (14), Toy fish (12) and Bow star (14). Prices are prototype
+tuning; cosmetic/slot ids must stay stable. No scoring or voice modifiers.
+Upper player paint, roof, shirt, flag and P1/P2 labels retain identity.
+
+Normally completed duels pay `round(best human's accumulated judge points / 10)`.
+Solo uses P1, hot seat uses the higher human total, never their sum or rival
+points. Ordinary solo synthetic-skiff wins add five; echo/hot seat do not.
+Completed losses still earn conversion. Workbench, seeds, incomplete/abandoned
+duels and chamber timeouts earn nothing. The shell banks once at actual results;
+Sailor's hook cannot use the generic CPU bonus because its skiff is game-owned.
+Valid silent performances retain the judges' minimum one-point paddles, so a
+completed three-judge silent loss can pay one Balboa without changing scoring.
+
+The same one-surface `BoatRig` draws equipped humans in gameplay, setup and
+gallery; synthetic opponents remain plain. Static canonical P1 shelf previews
+reuse setup's rig without reading live equipment. Results freeze outfit ids
+beside best-turn artwork; subsequent equips never rewrite an old share card.
+Cosmetics add no voice/profile/performance reads or audio/capture.
+Original empty/default outfits preserve captured branding and tutorial visuals.
+
+The earlier traditional-dress/pattern ideas, including sombrero pintao and
+mola-pattern pennants, are **not implemented**. They require cultural partnership
+and specific approval before consideration; reviewed campaign captains and
+achievement-gated cosmetics remain separate future scope.
 
 ### 9.3 Gallery
 
@@ -833,7 +875,8 @@ come from that match. Silence, no completed turn, an incomplete duel and
 development scorer examples remain explicitly distinguishable. Plain crew are
 prototype models, not named/recorded captains or culturally reviewed assets.
 Art is parked in isolated Compatibility viewports and hidden views stop
-rendering. Only frozen geometry/scalar captions enter the in-memory snapshot;
+rendering. Only frozen geometry/scalar captions and cosmetic ids enter the
+in-memory snapshot;
 the explicit PNG export contains no audio, pitch-frame/profile files or text/
 EXIF metadata. Preview writes no image file. The current homepage QR is labelled
 **Discover more games**, with no public run record or publisher implied.
@@ -857,6 +900,17 @@ EXIF metadata. Preview writes no image file. The current homepage QR is labelled
 - **Intense effects off**: no flash on a quiebre spark, no camera punch on a
   win.
 - **Longer windows** tunable (6 s → 9 s) and **Repeat call** everywhere.
+
+**Current keyboard/feedback polish:** the workbench and Soundcheck scrollers
+follow actual keyboard focus through phone/short-landscape/ultrawide layouts
+and 150% UI size. Soundcheck starts on Back rather than microphone consent.
+Actual numeric editors and calibration pickers have purpose/seat/profile
+metadata. Workbench elapsed text stays visible without continuous live
+announcements; stable feedback/errors restore polite live-region metadata.
+Real Tab and buffered-PCM regressions preserve capture, references and saves.
+These checks do not validate screen-reader speech, physical input hardware or
+controller-only navigation across all shared menus. The complete §9.5 sweep,
+including the ribbon visibility toggle, remains a release gate.
 
 ### 9.6 Audio — `sailor_audio.gd`
 
@@ -963,11 +1017,13 @@ Game-tab button row), add data to `GameManifest`, never a game-name branch.
 ## 13. Tests — `tests/`
 
 Headless unless noted; each one is a standalone `SceneTree` script that exits 0.
-Fourteen suites are implemented: the scorer, normalisation, pipeline, Remo,
+Seventeen suites are implemented: the scorer, normalisation, pipeline, Remo,
 duel state/scene, calibration, Soundcheck scene, audio, practice scene and canal
-view, share-card, gallery and art-capture suites. `canal_view_test.gd` and
+view, share-card, gallery, art-capture, setup-preview, store and onboarding
+suites. Fifteen support headless runs. `canal_view_test.gd` and
 `share_card_test.gd` require graphics; also run all three scene suites,
-`gallery_scene_test.gd` and `art_capture_test.gd` without `--headless`.
+`gallery_scene_test.gd`, `art_capture_test.gd`, `character_preview_test.gd`,
+`store_test.gd` and `onboarding_test.gd` without `--headless`: ten native checks.
 They check phone-to-ultrawide rendering
 and 150% UI without requesting microphone access. Rival-book and voyage suites
 below still describe later milestones.
@@ -983,13 +1039,16 @@ below still describe later milestones.
 | `rival_book_test.gd` | Every rival's every take loads, its stored score sits in its difficulty band, and a reachable player score beats each boss |
 | `voyage_test.gd` | Level order, achievement gates, free play after the champion, and that progress never regresses |
 | `voice_calibration_test.gd` | Profiles round-trip, dead-mic silence detection, missing-falsetto fallback |
-| `soundcheck_scene_test.gd` | Actual Room/Speak/Low/High/Call wizard, capture handoff, saved profiles, cancellation/failure, quiet source selection and native layouts |
+| `soundcheck_scene_test.gd` | Actual Room/Speak/Low/High/Call wizard, capture handoff, saved profiles, cancellation/failure, quiet source selection and native layouts; sixteen real Tab navigation cases, safe Back focus and editor metadata |
 | `sailor_audio_test.gd` | Original PCM headroom/DC/loop seam, real owned playback, immediate quiet contexts and combined verdict captions; duel scenes also verify actual native caption layouts and source safety |
-| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; two-human manifest capability |
+| `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; eight real Tab layouts, actual numeric-editor names and quiet timer/polite stable status metadata; two-human manifest capability |
 | `canal_view_test.gd` *(window)* | All five arenas over 40 size/UI cases, both singers/water endpoints, actual paint/contour/landmark pixels, complete primary landmarks, <60 draws, pause/hidden/reduced-motion/effects |
 | `share_card_test.gd` *(window)* | Nine frozen result cases, actual gold/paint pixels, both human portraits, truthful solo/echo/incomplete/scorer labels, static/reused/hidden views and <20 draws per portrait |
 | `gallery_scene_test.gd` *(also window)* | Free list/configuration, exact match meshes, error recovery, voice/audio/save isolation; 88 native exhibit/size/UI cases, actual launch pixels, complete framing, <60 draws, mouse/pad/touch, reset/auto-spin/reduced motion and hidden rendering |
 | `art_capture_test.gd` *(also window)* | Transparent model icon, actual CLI failures/selectors/default outputs and preserved level stills; native mesh framing, 512/64/32px gold/blue pixels, <10 draws and real title/picker/share branding |
+| `character_preview_test.gd` *(also window)* | Real collection/standalone solo/hot-seat setup, actual P1/P2 rigs and rejection/privacy/hidden rendering; 25 native cases with focused picker/Start visibility, complete framing, paint/face/plaque pixels, static frames and <10 draws |
+| `store_test.gd` *(also window)* | Actual purchase/P2 Equip, independent slots/shared ownership/wallet, reload and exact save restoration; 24 rigs, 24 native shelf previews, eight shop layouts, decorated match/setup/gallery/share framing, frozen outfits, damaged-data rejection/recovery and <10 preview draws. Duel scenes verify seven actual payouts, rounding, exclusions and duplicate settlement |
+| `onboarding_test.gd` *(also window)* | Player-paced static practice cards, seven real title routes, repeated-input/incoming-fade guards, live Reduced motion and voice/audio/save isolation; actual five-mark solo/hot-seat Guide and rebinding; 40 native layouts, whole actions, readable/reachable copy, complete model framing/pixels and <60 draws (measured maximum 12) |
 
 The framework suites pick the game up automatically. Run them all with
 `--game=all` before calling a milestone done.
@@ -1041,3 +1100,6 @@ cruises; more rivals per level; a grito-only quick-fire mode; daily rival.
    canal-authority branding. The current practice arenas are toy
    interpretations, not factual reconstructions. Geography and cultural
    statements marked *(verify)* still require review.
+8. **Prototype shop — confirmed and implemented:** four cosmetic kinds,
+   earned Balboas and independent P1/P2 outfits; shared wallet/ownership.
+   Original toy designs only, not traditional dress or patterned assets.

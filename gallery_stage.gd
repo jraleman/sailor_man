@@ -11,6 +11,7 @@ const Scenery = preload("res://games/sailor_man/world/scenery.gd")
 const Crowd = preload("res://games/sailor_man/world/crowd.gd")
 const Builder = preload("res://games/sailor_man/world/mesh_builder.gd")
 const Style = preload("res://games/sailor_man/world/canal_style.gd")
+const Outfit = preload("res://games/sailor_man/world/launch_outfit.gd")
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -76,6 +77,9 @@ func _ready() -> void:
 	_error.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	viewport.size_changed.connect(_frame_camera)
 	visibility_changed.connect(_update_visibility)
+	var store := get_node_or_null("/root/Store")
+	if store != null:
+		store.connect("equipped_changed", _on_outfit_changed)
 	if _configured:
 		_build_exhibit()
 	_update_visibility()
@@ -151,6 +155,8 @@ func _build_exhibit() -> void:
 			var arena := Arenas.arena(id)
 			if not arena.is_empty():
 				_build_arena(arena)
+	if _error.visible:
+		return
 	_collect_points()
 	if _points.is_empty():
 		_show_error("This exhibit has no model geometry.")
@@ -166,10 +172,20 @@ func _build_exhibit() -> void:
 
 func _add_launch(seat: int, label: String, at := Vector3.ZERO) -> Boat:
 	var boat := Boat.new(seat, label)
+	if label != "CPU" and not boat.set_outfit(
+		Outfit.equipped(get_node_or_null("/root/Store"), seat)):
+		boat.free()
+		_show_error("This launch outfit is unavailable.")
+		return null
 	boat.name = "Launch%d" % (seat + 1)
 	boat.position = at
 	_models.add_child(boat)
 	return boat
+
+
+func _on_outfit_changed(game_id: String, _slot: String, _item: String) -> void:
+	if game_id == Options.GAME_ID and _configured:
+		_build_exhibit()
 
 
 func _build_arena(arena: Dictionary) -> void:
@@ -190,6 +206,8 @@ func _build_arena(arena: Dictionary) -> void:
 	for seat in 2:
 		var boat := _add_launch(seat, "P1" if seat == 0 else "CPU",
 			Vector3(-2.25 if seat == 0 else 2.25, water + 0.26, 0))
+		if boat == null:
+			return
 		if not chamber.tow_anchors.is_empty():
 			for z in [-0.85, 0.85]:
 				tow_points.append(boat.transform * Vector3(
@@ -242,6 +260,8 @@ func _show_error(message: String) -> void:
 
 func _update_visibility() -> void:
 	if viewport != null:
+		(viewport.get_parent() as SubViewportContainer).visible = \
+			not _error.visible and not _points.is_empty()
 		viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS \
 			if is_visible_in_tree() and not _error.visible and not _points.is_empty() \
 			else SubViewport.UPDATE_DISABLED

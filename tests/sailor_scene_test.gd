@@ -176,7 +176,8 @@ func _test_remo_keyboard(game: Node, spike: Control) -> void:
 	(spike.get_node("%StartRemo") as Button).pressed.emit()
 	_expect(
 		bool(spike.get("_remo_active")) and spike.get("_capture") == null
-		and (spike.get_node("%KeepReference") as Button).disabled,
+		and (spike.get_node("%KeepReference") as Button).disabled
+		and (spike.get_node("%Status") as Label).accessibility_live == 1,
 		"The visible Remo action must open a hardware-free window, not a microphone."
 	)
 	_draw_remo_call(spike)
@@ -197,8 +198,10 @@ func _test_remo_keyboard(game: Node, spike: Control) -> void:
 	)
 	_expect(
 		not (spike.get("_remo_tone") as AudioStreamPlayer).playing
-		and not bool(spike.get("_remo_active")),
-		"A finished Remo call must stop its synthetic preview and close the window."
+		and not bool(spike.get("_remo_active"))
+		and (spike.get_node("%Status") as Label).accessibility_live == 1
+		and (spike.get_node("%Status") as Label).text.contains("scored"),
+		"A finished Remo call must stop its preview and announce completion, not its timer."
 	)
 	spike.call("clear_reference")
 
@@ -210,6 +213,9 @@ func _draw_remo_call(spike: Control) -> void:
 		(spike.get("_remo_tone") as AudioStreamPlayer).playing,
 		"Voiced Remo frames must drive the labelled synthetic preview."
 	)
+	var status := spike.get_node("%Status") as Label
+	_expect(status.text.contains("1.2") and status.accessibility_live == 0,
+		"Remo's visible timer must advance without queuing continuous live announcements.")
 	for _index in 3:
 		_send_key(KEY_J)
 		spike.call("_process", 0.04)
@@ -478,8 +484,10 @@ func _test_recording_ui(spike: Control) -> void:
 	spike.set("_capture", capture)
 	spike.call("_toggle_recording")
 	_expect(
-		bool(spike.get("_recording")) and capture.discarded,
-		"Record must discard pre-cue audio and open the real microphone pipeline."
+		bool(spike.get("_recording")) and capture.discarded
+		and (spike.get_node("%Status") as Label).accessibility_live == 1
+		and (spike.get_node("%Status") as Label).text.contains("Listening"),
+		"Record must announce an admitted microphone call and discard pre-cue audio."
 	)
 	_expect(
 		not bool((spike.get("_profile") as Dictionary)["falsetto_calibrated"]),
@@ -491,14 +499,18 @@ func _test_recording_ui(spike: Control) -> void:
 	)
 	spike.call("_process", 2.0)
 	spike.call("_process", 2.0)
+	var status := spike.get_node("%Status") as Label
+	_expect(status.text.contains("4.0") and status.accessibility_live == 0,
+		"The microphone timer must remain visible without announcing every frame.")
 	capture.pending = pcm
 	spike.call("_process", 2.0)
 	spike.call("_process", 3.1)
 	var result: Dictionary = spike.get("_last_result")
 	_expect(
 		not bool(spike.get("_recording")) and bool(result.get("valid", false))
-		and float(result["evidence"]["voiced_seconds"]) > 0.8,
-		"The recording deadline must score actual buffered PCM and close the window."
+		and float(result["evidence"]["voiced_seconds"]) > 0.8
+		and status.accessibility_live == 1 and status.text.contains("scored"),
+		"The recording deadline must score actual PCM and announce the completed call."
 	)
 	_expect(
 		not bool(result["power_gated"]),
@@ -528,8 +540,8 @@ func _test_recording_ui(spike: Control) -> void:
 	spike.call("_on_capture_failed", "Microphone permission denied (test).")
 	_expect(
 		spike.get("_capture") == null
-		and (spike.get_node("%Status") as Label).text.contains("permission denied"),
-		"A capture failure must release input and display its actual reason."
+		and status.text.contains("permission denied") and status.accessibility_live == 1,
+		"A capture failure must release input and announce its actual reason."
 	)
 	(spike.get_node("%ShapedExample") as Button).pressed.emit()
 	_expect(
@@ -624,6 +636,7 @@ func _test_layouts(spike: Control) -> void:
 
 
 func _check_layout(spike: Control, dimensions: Vector2i, preference: float) -> void:
+	await _check_keyboard_focus(spike, dimensions, preference)
 	var scroll := spike.get_node("%Scroll") as ScrollContainer
 	var bounds := Rect2(Vector2.ZERO, Vector2(dimensions)).grow(2.0)
 	_expect(
@@ -676,6 +689,61 @@ func _check_layout(spike: Control, dimensions: Vector2i, preference: float) -> v
 					]
 				))
 				_expect(error == OK, "Could not save the requested layout capture.")
+
+
+func _check_keyboard_focus(
+	spike: Control, dimensions: Vector2i, preference: float
+) -> void:
+	var scroll := spike.get_node("%Scroll") as ScrollContainer
+	var first := spike.get_node("%Pause") as Button
+	var reference: Array = (spike.get("_reference") as Array).duplicate(true)
+	var track: Array = (spike.get("_track") as Array).duplicate(true)
+	var visited := PackedStringArray()
+	first.release_focus()
+	scroll.scroll_vertical = 0
+	for frame in 6:
+		await process_frame
+	first.grab_focus()
+	for frame in 6:
+		await process_frame
+	for step in 28:
+		var focused := get_root().gui_get_focus_owner()
+		if focused == null or not spike.is_ancestor_of(focused):
+			_expect(false, "Workbench Tab navigation must stay inside its visible controls.")
+			break
+		visited.append(str(focused.name))
+		if focused is BaseButton or focused is LineEdit:
+			_expect(_native_rect(scroll).grow(1.0).encloses(_native_rect(focused)),
+				("%s must follow keyboard focus at %s / %.1f UI "
+				+ "(control %s, scroll %s, offset %d).")
+				% [focused.name, dimensions, preference, _native_rect(focused),
+					_native_rect(scroll), scroll.scroll_vertical])
+		if focused == (spike.get_node("%ChestHz") as SpinBox).get_line_edit():
+			_expect(focused.accessibility_name.to_lower().contains("chest"),
+				"The actual chest editor must announce its purpose, not only a number.")
+		if focused == (spike.get_node("%CarryLevel") as SpinBox).get_line_edit():
+			_expect(focused.accessibility_name.to_lower().contains("level"),
+				"The actual level editor must identify the temporary comfortable reference.")
+		var event := InputEventKey.new()
+		event.keycode = KEY_TAB
+		event.physical_keycode = KEY_TAB
+		event.pressed = true
+		Input.parse_input_event(event)
+		event = event.duplicate()
+		event.pressed = false
+		Input.parse_input_event(event)
+		for frame in 6:
+			await process_frame
+		if get_root().gui_get_focus_owner() == first:
+			break
+	for name: String in [
+		"StartRemo", "ShapedExample", "FlatExample", "KeepReference", "ClearReference", "BackToDuel",
+	]:
+		_expect(name in visited,
+			"Real Tab navigation must reach " + name + " without a mouse or manual scrolling.")
+	_expect(spike.get("_capture") == null and spike.get("_reference") == reference
+		and spike.get("_track") == track,
+		"Keyboard browsing must not open hardware, perform a call or rewrite its reference.")
 
 
 func _native_rect(control: Control) -> Rect2:

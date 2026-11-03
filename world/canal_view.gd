@@ -100,6 +100,22 @@ func configure(arena_id: String) -> bool:
 	return true
 
 
+## Cosmetics preserve the actual mouths and source-relative contour transforms.
+func set_outfits(outfits: Array[Dictionary]) -> bool:
+	if outfits.size() != boats.size():
+		push_error("Sailor canal needs exactly one outfit per launch.")
+		return false
+	for outfit: Dictionary in outfits:
+		var error := Boat.Outfit.validate(outfit)
+		if not error.is_empty():
+			push_error("Sailor canal: " + error)
+			return false
+	for index in boats.size():
+		boats[index].set_outfit(outfits[index])
+	_fit_camera()
+	return true
+
+
 ## A replay clears presentation just as the duel clears its tracks and clock.
 func reset() -> void:
 	_elapsed = 0.0

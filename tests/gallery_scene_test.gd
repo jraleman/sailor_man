@@ -7,6 +7,7 @@ const Manifest = preload("res://games/sailor_man/game.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
 const Canal = preload("res://games/sailor_man/world/canal_view.gd")
+const Outfit = preload("res://games/sailor_man/world/launch_outfit.gd")
 
 var _failures := PackedStringArray()
 var _capture_directory := ""
@@ -150,6 +151,10 @@ func _test_models(screen: Node) -> void:
 		_expect(viewport.find_world_3d() != get_root().find_world_3d(),
 			id + ": gallery lighting and camera must remain isolated from the shell.")
 		if id in ["launch", "skiff", "hot_seat"]:
+			view.set_outfits([
+				Outfit.equipped(get_root().get_node("Store"), 0),
+				Outfit.equipped(get_root().get_node("Store"), 1) if id == "hot_seat" else {},
+			])
 			for seat in 2:
 				var boat: Node3D = models.get_node_or_null("Launch%d" % (seat + 1))
 				if boat == null:
@@ -162,6 +167,7 @@ func _test_models(screen: Node) -> void:
 					id + ": identity must not depend on paint alone.")
 		if id in [Arenas.GATUN, Arenas.LAKE, Arenas.CULEBRA, Arenas.PEDRO_MIGUEL, Arenas.PACIFIC]:
 			view.configure(id)
+			view.set_outfits([Outfit.equipped(get_root().get_node("Store"), 0), {}])
 			_compare_tree_meshes(models.get_node("ArenaScenery"), view.get("_scenery"), id)
 			var chamber: Node3D = models.get_node("LockSet")
 			_compare_tree_meshes(chamber, view.chamber, id)

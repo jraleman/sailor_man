@@ -189,6 +189,11 @@ func configure_arena(arena_id: String) -> bool:
 	return true
 
 
+## The controller supplies human equipment; the synthetic skiff stays plain.
+func set_outfits(outfits: Array[Dictionary]) -> bool:
+	return lock.set_outfits(outfits)
+
+
 ## Names accompany stable P1/P2 tags and colours on every human handoff.
 func set_player_names(names: PackedStringArray) -> void:
 	assert(names.size() == 2)
@@ -209,6 +214,9 @@ func set_voice_profiles(names: PackedStringArray, selected: String) -> void:
 	_profiles.disabled = names.is_empty()
 	_profiles.tooltip_text = selected if not selected.is_empty() else \
 		"Choose your own calibration, or use Remo without one."
+	_profiles.accessibility_description = "Selected profile: %s. " % (
+		selected if not selected.is_empty() else "none")
+	_profiles.accessibility_description += "Choosing a profile keeps the microphone off."
 
 
 ## The real practice/input scene is reused, rather than a second input/scorer path.
@@ -357,6 +365,7 @@ func present(
 	_source_status.visible = _sources.visible
 	_profile_row.visible = state.hot_seat and _sources.visible
 	_profile_title.text = "%s (%s) calibration profile" % [_player_names[state.singer], actor]
+	_profiles.accessibility_name = _profile_title.text
 	_rest_offer.visible = rest_due and (state.phase in [Duel.Phase.READY, Duel.Phase.COMPLETE]
 		or ((state.preparing_seed or (state.hot_seat and state.tanda == 1))
 			and state.phase == Duel.Phase.PLAYER_READY))

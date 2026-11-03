@@ -1,11 +1,12 @@
 extends Node3D
 
-## One original launch rig for both seats and future previews/cosmetics.
+## One original launch rig for both seats, previews and injected cosmetics.
 ## Plain toy crew imply no named captain, traditional dress or recorded voice.
 
 const Builder = preload("res://games/sailor_man/world/mesh_builder.gd")
 const Style = preload("res://games/sailor_man/world/canal_style.gd")
 const Identity = preload("res://scripts/player_identity.gd")
+const Outfit = preload("res://games/sailor_man/world/launch_outfit.gd")
 const OUTLINE := [
 	Vector2(-0.7, 1.5), Vector2(0.7, 1.5), Vector2(1.0, 1.05),
 	Vector2(1.04, -0.7), Vector2(0.72, -1.42), Vector2(0, -1.9),
@@ -17,12 +18,52 @@ var hat_slot: Marker3D
 var bow_slot: Marker3D
 var plaque: Label3D
 var body: MeshInstance3D
+var outfit := Outfit.complete({})
+var _seat := 0
 
 
 func _init(seat := 0, seat_label := "P1") -> void:
+	_seat = seat
+	body = MeshInstance3D.new()
+	body.name = "BoatMesh"
+	body.mesh = _build_body()
+	body.material_override = Style.material()
+	add_child(body)
+	mouth = _anchor("Mouth", Vector3(0.21 if seat == 0 else -0.21, 1.13, -0.79))
+	hat_slot = _anchor("HatSlot", Vector3(0, 1.40, -0.79))
+	bow_slot = _anchor("BowSlot", Vector3(0, 0.33, -1.72))
+	plaque = Label3D.new()
+	plaque.name = "SeatPlaque"
+	plaque.text = seat_label
+	plaque.font_size = 64
+	plaque.pixel_size = 0.010
+	plaque.modulate = Style.CREAM
+	plaque.outline_modulate = Style.INK
+	plaque.outline_size = 12
+	plaque.position = Vector3(0, 1.61, 0.56)
+	plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	plaque.no_depth_test = true
+	add_child(plaque)
+
+
+## Rebuild only the batched surface, preserving mouths, plaques and live ribbons.
+func set_outfit(selected: Dictionary) -> bool:
+	var error := Outfit.validate(selected)
+	if not error.is_empty():
+		push_error("Sailor launch: " + error)
+		return false
+	var next := Outfit.complete(selected)
+	if next != outfit:
+		outfit = next
+		body.mesh = _build_body()
+	return true
+
+
+func _build_body() -> ArrayMesh:
+	var seat := _seat
 	var paint := Identity.color(seat)
 	var builder := Builder.new()
-	_hull(builder, paint)
+	_hull(builder, paint, str(outfit["paint"]))
 	builder.rounded_box(Vector3(0, 0.67, 0.52), Vector3(1.35, 0.83, 1.3),
 		0.10, Style.CREAM)
 	builder.rounded_box(Vector3(0, 1.13, 0.52), Vector3(1.52, 0.14, 1.46),
@@ -41,27 +82,16 @@ func _init(seat := 0, seat_label := "P1") -> void:
 		Vector3(-0.06, 2.18, 0.95), paint)
 	builder.triangle(Vector3(-0.80, 2.32, 0.949), Vector3(-0.06, 2.18, 0.949),
 		Vector3(-0.80, 1.91, 0.949), paint)
+	Outfit.pennant(builder, str(outfit["pennant"]), paint)
 	_crew(builder, 1.0 if seat == 0 else -1.0, paint,
 		Color("b8784e") if seat == 0 else Color("d59a67"))
-	body = builder.build(self, "BoatMesh", Style.material())
-	mouth = _anchor("Mouth", Vector3(0.21 if seat == 0 else -0.21, 1.13, -0.79))
-	hat_slot = _anchor("HatSlot", Vector3(0, 1.40, -0.79))
-	bow_slot = _anchor("BowSlot", Vector3(0, 0.33, -1.72))
-	plaque = Label3D.new()
-	plaque.name = "SeatPlaque"
-	plaque.text = seat_label
-	plaque.font_size = 64
-	plaque.pixel_size = 0.010
-	plaque.modulate = Style.CREAM
-	plaque.outline_modulate = Style.INK
-	plaque.outline_size = 12
-	plaque.position = Vector3(0, 1.61, 0.56)
-	plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	plaque.no_depth_test = true
-	add_child(plaque)
+	Outfit.decorate(builder, outfit, 1.0 if seat == 0 else -1.0, paint)
+	return builder.finish()
 
 
-func _hull(builder: Builder, paint: Color) -> void:
+func _hull(builder: Builder, paint: Color, finish: String) -> void:
+	var lower := Style.CREAM if finish == "paint_cream_band" else \
+		paint.darkened(0.40) if finish == "paint_deep_hull" else paint
 	for index in OUTLINE.size():
 		var a: Vector2 = OUTLINE[index]
 		var b: Vector2 = OUTLINE[(index + 1) % OUTLINE.size()]
@@ -69,9 +99,15 @@ func _hull(builder: Builder, paint: Color) -> void:
 		var top_b := Vector3(b.x, 0.24, b.y)
 		var bottom_a := Vector3(a.x * 0.70, -0.30, a.y * 0.83)
 		var bottom_b := Vector3(b.x * 0.70, -0.30, b.y * 0.83)
-		builder.quad(top_a, bottom_a, bottom_b, top_b, paint)
+		if finish == "paint_identity":
+			builder.quad(top_a, bottom_a, bottom_b, top_b, paint)
+		else:
+			var middle_a := top_a.lerp(bottom_a, 0.40)
+			var middle_b := top_b.lerp(bottom_b, 0.40)
+			builder.quad(top_a, middle_a, middle_b, top_b, paint)
+			builder.quad(middle_a, bottom_a, bottom_b, middle_b, lower)
 		builder.triangle(Vector3(0, 0.24, 0), top_a, top_b, Style.WOOD)
-		builder.triangle(Vector3(0, -0.30, 0), bottom_b, bottom_a, paint.darkened(0.22))
+		builder.triangle(Vector3(0, -0.30, 0), bottom_b, bottom_a, lower.darkened(0.22))
 		builder.beam(top_a + Vector3.UP * 0.035, top_b + Vector3.UP * 0.035,
 			0.07, Style.CREAM)
 	for row in 7:

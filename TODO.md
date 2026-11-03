@@ -39,6 +39,9 @@ below that depends on one should start until it is answered.
       listening deadlines remain; future campaign access is undecided.
 - [x] **Hot-seat share artwork** (§9.4) — the owner chose both actual singers'
       best accepted turns, not winner-only art.
+- [x] **Prototype shop** (§9.2) — the owner chose hat/pennant/paint/bow,
+      earned Balboas and independent P1/P2 equipment, with shared ownership/
+      wallet. Original toy designs only, not traditional dress or patterns.
 
 ## Discrepancies found while planning
 
@@ -62,7 +65,8 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
 - [x] `sailor_man_options.gd` — constants-only: `GAME_ID`, Quiet Mode, longer
       windows, sensitivity, the spike's Record action and implemented Remo
       bindings. Free practice arena data now lives in `canal_arenas.gd`;
-      captains, store and gallery stay undeclared.
+      prototype character/store/gallery declarations are Milestone 8 work.
+      Production captains remain undeclared.
 - [x] `game.gd` — minimal manifest (§7.4): id, title, tagline, `menu_order = 10`,
       `CONTROL_STYLE_CUSTOM_KEYS`, `uses_shell_round_rules = false`, tunables,
       bindings. Multiplayer stayed off until the tested hot-seat slice below.
@@ -481,8 +485,10 @@ flow/visuals are unchanged, so its silent clip is not re-recorded.
 - [ ] Progress in `user://sailor_man.cfg` (declared `save_files`), merging
       rather than rebuilding, never regressing.
 - [ ] Achievements (§9.1) — all eleven keys, each reachable in Remo and Quiet Mode.
-- [ ] `intro.tscn` — five story cards (§1).
-- [ ] Instructions copy + glossary card; tutorial says the marks are a simplification.
+- [ ] Campaign opening — five reviewed story cards (§1), replacing the current
+      three-card practice introduction only when those claims are implemented.
+- [ ] Campaign instructions/glossary and tutorial; the current practice Guide
+      already explains the five game marks as simplifications.
 - [x] `tools/capture_art.gd` — practice arena stills to `assets/levels/`;
       regenerate when the later campaign changes those views.
 - [ ] `tests/voyage_test.gd`.
@@ -490,13 +496,21 @@ flow/visuals are unchanged, so its silent clip is not re-recorded.
 
 ## Milestone 8 — Shell features
 
+- [x] Prototype onboarding: three player-paced original-model cards, skippable
+      to the title, plus the shared written five-mark solo/hot-seat Guide.
+      No narration, microphone activation, campaign claim or new save.
 - [x] Hot seat: `supports_multiplayer`, `local_multiplayer_turns`, "Pass the
       mic" card with name, colour and P1/P2, per-seat calibration profile.
       Two actual singers, all five free-practice arenas, no chamber timeout,
       source/profile/rest isolation, safe handoffs and shared results/replay.
-- [ ] `character_preview.tscn` — captain on the setup plinth.
-- [ ] Store (§9.2): Balboas, slots hat/pennant/paint/bow, starter items,
-      `store_preview.tscn` covering both boat and captain.
+- [x] Prototype `character_preview.tscn` — actual player launch and plain crew
+      on the shared setup plinth, with canonical P1/P2 identity. Production
+      captains/recorded voices remain Milestone 6 work.
+- [x] Prototype store (§9.2): earned Balboas, four kinds/eight human slots,
+      four free original defaults/eight paid toy items and actual rig previews.
+      Shared ownership/wallet, independent equipment, real duel payout and
+      equipped gameplay/setup/gallery/frozen share portraits. Reviewed
+      traditional assets and production captains are not included.
 - [x] Free prototype gallery (§9.3): eleven original boat/lock/scenery exhibits,
       `gallery_stage.tscn` with `configure`/`set_view`, shared viewer auto-spin,
       live orbit/zoom/reset and no voice or save state.
@@ -636,8 +650,140 @@ captain or culturally reviewed shipping asset. Physical-device/output,
 acoustic-tail, browser/mobile, authentic-recording and cultural gates remain
 unverified; campaign, recorded rivals, store and standalone shipping are pending.
 
+**Setup-preview follow-up:** the owner chose the current plain crew aboard
+the blue/red player launch, ahead of a cosmetics shop. One free
+`practice_launch` entry mounts the existing setup plinth; no production captain,
+voice, gameplay modifier or framework game-name branch is added. Canonical
+actual boat geometry, crew and P1/P2 plaques render in a static, transparent,
+isolated Compatibility world. Extra colour/scene/profile fields are ignored;
+invalid IDs and non-integer/out-of-range seats clear old geometry and fail
+visibly. Hidden/nonfeatured previews stop rendering.
+
+Import, all **15 distinct game suites**, all **15 framework suites** and all
+**eight Sailor windowed checks** passed on Godot 4.7.2/Windows with isolated
+profiles and Dummy audio, without script errors. The shared setup change also
+passed Cube Trials' real three-human multiplayer view suite. The preview
+suite covers actual collection/standalone solo/hot-seat rows, all five arenas,
+exact rig reuse, configuration/recovery and unchanged audio buses/save bytes.
+Its **25 rendered cases** include all solo/P1/P2 size/UI combinations and
+expanded Details on a 320px phone at 150%, with actual focused-picker/Start
+visibility, complete mesh framing, paint/face/plaque pixels and static frames.
+Maximum **3 draws**, below ten; examples were inspected. Three unavailable-
+preview errors are deliberate rejection tests.
+
+Rendered regressions caught missing controls beneath long briefing text,
+oversized short-landscape headings/inline seats and stale focus after reflow.
+The shared setup now scrolls briefing/Details with the choices, stacks narrow
+identity/picker pairs, preserves focus visibility and wraps compact Start labels.
+Sailor's summary is mode-neutral; Details distinguishes solo clocks from
+untimed hot seat. Scoring, arena rules, match meshes, sharing and tutorial
+gameplay/captions are unchanged; no tutorial re-recording was needed.
+This is prototype presentation, not cultural validation or a finished captain.
+Physical microphones/output, acoustic tails, browser/mobile, authentic
+recordings and cultural review remain unverified; campaign, recorded rivals,
+store and standalone shipping remain pending.
+
+**Prototype-shop follow-up:** the owner chose all four cosmetic kinds, earned
+currency and independent human equipment. Twelve canonical toy items use eight
+stable `p1_`/`p2_` slots and the existing Store's shared per-game Balboas wallet,
+ownership and persistence. Four free defaults preserve the original bare-headed
+launch; eight paid hats/flags/lower-hull finishes/bow ornaments change no rules
+or voices. Buy once, wear on either/both humans; shared first-default-slot
+auto-equip and explicit P1/P2 controls are retained. No traditional dress,
+mola pattern, cultural gate or named/recorded captain was added.
+
+Normally completed duels bank `round(best human's accumulated judge points / 10)`,
+plus five only for an ordinary solo synthetic-skiff win. Hot seat takes the
+higher human total, never their sum or opponent points, and pays once.
+Completed losses/self-echo still earn conversion; workbench, seeds,
+unfinished/abandoned duels and timeouts earn zero. Valid silent tracks retain
+the judges' existing one-point floor: a completed three-judge silent loss can
+pay one Balboa. Tests were corrected to that real rule, not scoring changed
+to fit an assumed zero payout.
+
+The same batched one-surface rig dresses actual human launches in play, setup
+and gallery, retaining mouth/attachment anchors, ribbons and explicit identity;
+the skiff/echo remains plain. Shelf previews are canonical static P1 models.
+Results deep-copy cosmetic ids into renderer-only `sailor_outfits`, so later
+equipment cannot rewrite a pending share. Damaged outfit kinds fail explicitly,
+hide stale preview textures and recover on a valid equip; gallery changes
+retain orbit. No voice/profile/performance reads, audio or new save files belong
+to these cosmetic views.
+
+Import, all **16 distinct Sailor suites**, all **15 framework suites** and all
+**nine Sailor native checks** passed on Godot 4.7.2/Windows with isolated profiles
+and Dummy audio, without script errors. Fourteen Sailor suites support headless
+runs. Actual Buy/P2 Equip, insufficient funds, shared ownership/independent
+slots, real save reload, exact restoration and other-game/file/audio isolation
+passed. Every item runs on both rigs (**24 cases**); native coverage includes
+**24 shelf previews**, **eight shop size/UI layouts** and complete decorated
+match/setup/gallery/share framing. Preview maximum is **3 draws**, below ten.
+Seven actual completed duels verify visible payout, rounding, human-only totals,
+bonus exclusions and duplicate-result protection. Existing setup/gallery model
+comparisons now account for legitimate saved equipment.
+
+Rendered inspection caught hidden bunting and an overlong short-landscape shop
+intro; the original toy flags now sit above the unchanged player pennant and
+the intro is compact. Whole-button focus checks allow only half a physical
+pixel for integer-scroll rounding, not clipped actions. Independent icon
+regenerations differed in PNG bytes with a measured raster difference below
+0.00000001; the check now compares pixels with a tight rounding tolerance while
+levels-only still must leave an existing icon byte-for-byte unchanged.
+Checked-in branding/tutorial assets were not regenerated; defaults and tutorial
+gameplay/captions remain unchanged.
+
+Existing shared-audio shutdown diagnostics and intentional invalid-input
+negatives remain. Physical microphones/output, acoustic tails, browser/mobile,
+authentic recordings and cultural review are unverified. Campaign, production
+rivals/captains, reviewed traditional cosmetics and standalone shipping remain
+pending; this completes the original-toy prototype shop only.
+
+**Practice-onboarding follow-up:** the owner chose a short original-model
+opening plus the five-mark written Guide, with player-paced Next/Done rather
+than automatic advance. Three static cards introduce free practice, Remo
+and comfortable optional microphone use. Skip stays visible; Done/Skip,
+Escape and controller B route once to the normal title, including during
+an incoming fade. D-pad left/right selects actions, A activates, and up/down
+scrolls. Mouse, keyboard and emulated touch use the same actual controls.
+Standalone registration uses the manifest; the collection intro is unchanged.
+No narration, voice source, profile/performance reads, campaign state or new
+persistence was added. Reduced motion cancels a card fade immediately;
+hidden/finished model stages stop rendering.
+
+The existing shared Guide retains real solo/hot-seat rules, the Culebra echo,
+clocks and current rebound keys. It now defines all five marks, distinguishes
+grito from a sixth action, states that unmeasured microphone bands remain
+provisional, and keeps comfort/Quiet Mode/no-volume-bonus wording explicit.
+These are game mechanics, not cultural claims. Native regression found Start
+off-screen in short landscape at 150% UI. The generic shared screen now
+measures footer action widths and compacts context on very short logical
+screens, retaining full tooltip/accessibility text and the same preference.
+The new extreme-size regression covers the written Guide, not a new
+video-first layout guarantee.
+
+Import, all **17 distinct Sailor suites**, all **15 framework suites**,
+**ten Sailor native checks** and the **shared instructions native check**
+passed with isolated profiles and Dummy audio: **42 checks including import**.
+Fifteen Sailor suites support headless runs. New native onboarding covers
+**40 layouts** (three cards and solo/hot-seat Guides, four sizes, two UI scales),
+physical text/action sizing, scroll-reachable final copy, full actual model
+framing/pixels and a maximum of **12 draws**, below 60. Seven real Router exit
+paths assert primary input before duplicate-exit tests; live Reduced motion,
+held-key repeats, shared rebinding and no audio/save changes pass. Rendered
+frames were inspected.
+
+Existing shared-audio shutdown diagnostics and deliberate rejection cases
+remain. Branding and tutorial gameplay/captions are unchanged; no art or
+tutorial regeneration was needed. Physical microphone/output, real controller/
+touch hardware, acoustic tails, browser/mobile, authentic recordings and
+cultural review remain unverified. Campaign story/progression, recorded
+opponents and standalone shipping are still pending.
+
 ## Milestone 9 — Polish and integration (§12)
 
+- [x] Bounded keyboard/feedback polish: focus-following workbench/Soundcheck
+      scrolling, safe initial Back focus, actual editor/seat/profile names and
+      quiet live timer updates with polite stable status/error feedback.
 - [ ] Accessibility sweep against §9.5.
 - [ ] Web and mobile mic passes; Android/iOS record-audio permission.
 - [ ] `project.godot`: `config/name.sailor_man`, `custom_user_dir_name.sailor_man`
@@ -652,6 +798,23 @@ unverified; campaign, recorded rivals, store and standalone shipping are pending
 - [x] Folder `README.md` documents the current prototype and its limitations.
 - [ ] **Exit:** all framework suites + all game suites exit 0 with
       `--game=all`; window suites run without `--headless`.
+
+**Keyboard/feedback verification:** import, fifteen Sailor headless runs,
+fifteen framework headless runs and ten Sailor native checks passed on
+Godot 4.7.2/Windows with isolated profiles and Dummy audio: **41 checks**,
+without script errors. Real Tab covers eight workbench layouts and sixteen
+empty/loaded-profile Soundcheck layouts; numeric editors and both singers'
+profile pickers expose their actual purpose/context. Timer text remains visible,
+while stable feedback/errors restore polite live-region metadata. No scorer,
+bindings, microphone consent, persistence, branding or tutorial changes were
+needed. The test's initial scroll reset must settle before fresh focus is
+grabbed; manual visibility calls do not stand in for keyboard navigation.
+
+The complete §9.5 sweep, ribbon visibility toggle, actual screen-reader speech
+and controller-only shared-menu navigation remain pending. Physical microphone/
+output/controller/touch hardware, acoustic tails, browser/mobile, authentic
+recordings and cultural review remain unverified. Deliberate rejection cases
+and existing shared-audio shutdown diagnostics remain.
 
 ## Stretch (§14)
 

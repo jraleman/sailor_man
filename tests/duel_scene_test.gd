@@ -47,6 +47,7 @@ class BufferedCapture extends Node:
 
 var _failures := PackedStringArray()
 var _captions := PackedStringArray()
+var _payout_checks := 0
 
 
 func _initialize() -> void:
@@ -115,6 +116,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	await _test_hot_seat(packed)
+	_expect(_payout_checks == 7,
+		"Actual skiff, echo and both-human wins must all complete their payout checks.")
 	# Mixer cleanup is asynchronous; fast headless frames do not drain playback.
 	await create_timer(0.1, true, false, true).timeout
 	_expect(AudioServer.bus_count == buses, "Leaving the duel must release every owned bus.")
@@ -294,7 +297,7 @@ func _test_hot_seat_win(game: Node, spike: Control, hud: Control, winner: int) -
 		and str(payload["accuracy_caption"]).begins_with("P1 / P2")
 		and str(payload["result"]).contains("P%d WINS" % (winner + 1)),
 		"Human sharing must retain both real scores, both best turns and every Pacific judge.")
-	game.call("_on_duel_action")
+	_finish_with_payout(game, roundi(float(maxi(duel.points[0], duel.points[1])) / 10.0))
 	var panels: Array = game.get("_player_ui")
 	_expect((game.get_node("%ResultLabel") as Label).text.contains("P%d WINS" % (winner + 1))
 		and (panels[1]["result_card"] as Control).visible and not hud.visible
@@ -307,6 +310,25 @@ func _test_hot_seat_win(game: Node, spike: Control, hud: Control, winner: int) -
 		"A hot-seat rematch must reset both scores/tracks without opening a microphone.")
 
 
+func _finish_with_payout(game: Node, earned: int) -> void:
+	var store := get_root().get_node("Store")
+	var before := int(store.call("points", Options.GAME_ID))
+	_expect(int(game.call("_round_points_earned", 999, 999)) == earned
+		and int(store.call("points", Options.GAME_ID)) == before,
+		"Reward calculation must use admitted human judge points without banking them.")
+	game.call("_on_duel_action")
+	_expect(int(store.call("points", Options.GAME_ID)) == before + earned,
+		"Only the actual shell results must bank this duel's correct payout.")
+	if earned > 0:
+		_expect((game.get_node("%RoundHighlight") as Label).text.contains(
+			str(store.call("format_points", Options.GAME_ID, earned))),
+			"The actual results must show the earned Balboas, not silently credit a wallet.")
+	game.call("_end_round")
+	_expect(int(store.call("points", Options.GAME_ID)) == before + earned,
+		"Repeated results input must never bank the same duel a second time.")
+	_payout_checks += 1
+
+
 func _test_hot_seat_profiles(
 	game: Node, spike: Control, hud: Control, path: String, low: Dictionary, high: Dictionary
 ) -> void:
@@ -314,6 +336,11 @@ func _test_hot_seat_profiles(
 	var settings := get_root().get_node("Settings")
 	var preference := int(settings.call("tunable_choice", Options.INPUT_SOURCE_KEY))
 	_select_seat_profile(hud, LOW_PROFILE)
+	var picker := hud.get_node("%SeatVoiceProfile") as OptionButton
+	_expect(picker.accessibility_name.contains("P1")
+		and picker.accessibility_description.contains(LOW_PROFILE)
+		and picker.accessibility_description.contains("off") and spike.get("_capture") == null,
+		"The focused profile picker must identify P1 and the selected profile without capture.")
 	(hud.get_node("%UseMicrophone") as Button).pressed.emit()
 	var capture := _checked_capture(spike)
 	game.call("_sync_hud")
@@ -343,6 +370,10 @@ func _test_hot_seat_profiles(
 		"New P2 Soundcheck must identify P2, not preselect or overwrite P1's profile.")
 	wizard.call("_cancel")
 	_select_seat_profile(hud, HIGH_PROFILE)
+	_expect(picker.accessibility_name.contains("P2")
+		and picker.accessibility_description.contains(HIGH_PROFILE)
+		and picker.accessibility_description.contains("off") and spike.get("_capture") == null,
+		"P2's picker must announce P2's actual profile rather than P1 or an unlabeled value.")
 	(hud.get_node("%UseMicrophone") as Button).pressed.emit()
 	game.call("_on_duel_action")
 	_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.records.size() == 1
@@ -702,6 +733,8 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 		and spike.get("_capture") == null and (game.get("_rival") as Dictionary).is_empty()
 		and (hud.get("_turn") as Label).text.contains("UNSCORED"),
 		"Choosing self-echo must ask for an unscored seed without opening a microphone.")
+	_expect(int(game.call("_round_points_earned", 999, 999)) == 0,
+		"An unscored seed cannot earn Balboas, even with stale shell score arguments.")
 	_open_player(game)
 	_tick(game, 0.2)
 	spike.call("finish_duel_turn")
@@ -812,7 +845,7 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 		and (hud.get("_judges")[0] as Label).text.contains("/ ECHO")
 		and str(game.call("_round_highlight_summary")).contains("ECHO"),
 		"The boat, panel and result evidence must identify the echo, not a fictitious CPU crew.")
-	game.call("_on_duel_action")
+	_finish_with_payout(game, roundi(float(duel.points[0]) / 10.0))
 	_expect((game.get_node("%RoundOver") as Control).visible and not hud.visible
 		and (game.get_node("%ResultLabel") as Label).text.contains("P1 WINS"),
 		"Winning the self-echo challenge must reach the actual shell results.")
@@ -843,7 +876,7 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 		and is_zero_approx(float(silent_payload["sailor_art"][0]["total"]))
 		and str(silent_payload["result"]) == "FIXED ECHO WINS",
 		"A silent competitive loss must share zero human quality with no fabricated contour.")
-	game.call("_on_duel_action")
+	_finish_with_payout(game, roundi(float(duel.points[0]) / 10.0))
 	_expect((game.get_node("%ResultLabel") as Label).text.contains("ECHO WINS"),
 		"An echo win must not be mislabeled as the practice skiff in shell results.")
 	game.call("_on_play_again_pressed")
@@ -1032,6 +1065,8 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 	_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.repeat_used
 		and duel.records.size() == count,
 		"Repeat must play the reference without another scored rival turn.")
+	_expect(int(game.call("_round_points_earned", 999, 999)) == 0,
+		"Repeat and an unfinished duel must never pay provisional or shell scores.")
 	_open_player(game)
 	_draw_call(game)
 	_expect(duel.wins[0] == 1 and duel.phase == Duel.Phase.REVIEW,
@@ -1059,7 +1094,14 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 		and int(stats["quiebres"]) >= 6 and float(stats["longest_breath"]) > 4.5
 		and str(stats["source"]) == "Remo",
 		"Duel results must derive tandas, marks, breaks, breath and source from real turns.")
-	game.call("_on_duel_action")
+	var admitted_points := duel.points.duplicate()
+	for edge: Vector2i in [Vector2i(4, 0), Vector2i(5, 1),
+		Vector2i(14, 1), Vector2i(15, 2)]:
+		duel.points = PackedInt32Array([edge.x, 999])
+		_expect(int(game.call("_round_points_earned", 999, 999)) == edge.y + 5,
+			"Round-to-nearest boundaries ignore rival totals; the tanda winner earns the bonus.")
+	duel.points = admitted_points
+	_finish_with_payout(game, roundi(float(duel.points[0]) / 10.0) + 5)
 	_expect((game.get_node("%RoundOver") as Control).visible and not hud.visible
 		and (game.get_node("%ResultLabel") as Label).text.contains("P1 WINS"),
 		"Winning the duel must hand off to the real shell results.")
@@ -1373,6 +1415,8 @@ func _test_practice_return(game: Node, spike: Control, hud: Control) -> void:
 		"Practice after microphone setup must restore visible, usable Remo controls.")
 	spike.call("load_example", true)
 	_expect(int(game.get("_calls")) == 1, "Practice fixtures must still exercise the scorer.")
+	_expect(int(game.call("_round_points_earned", 999, 999)) == 0,
+		"Development examples must never mint currency through the shell's score conversion.")
 	var first_mesh: Mesh = game.get("_best_turn_art")[0]["mesh"]
 	spike.call("load_example", true)
 	_expect(game.get("_best_turn_art")[0]["mesh"] == first_mesh,

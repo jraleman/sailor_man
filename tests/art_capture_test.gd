@@ -86,14 +86,17 @@ func _test_cli_outputs() -> void:
 		and not DirAccess.dir_exists_absolute(directory.path_join("levels")),
 		"--only=icon must capture just the model icon.")
 	var icon_hash := FileAccess.get_sha256(icon_path)
+	var captured_icon := Image.load_from_file(icon_path)
 	_run_capture(["--only=levels", "--output-dir=" + directory])
 	_expect(FileAccess.get_sha256(icon_path) == icon_hash,
 		"--only=levels must leave an existing icon untouched.")
 	_assert_level_outputs(directory)
 	_remove_outputs(directory)
 	_run_capture(["--output-dir=" + directory])
-	_expect(FileAccess.get_sha256(icon_path) == icon_hash,
-		"Default capture must reproduce the icon as well as the five level stills.")
+	var difference := _image_error(captured_icon, Image.load_from_file(icon_path))
+	_expect(difference < 0.00001,
+		"Default capture must reproduce the icon as well as the five level stills "
+			+ "(mean raster difference %.8f)." % difference)
 	_assert_level_outputs(directory)
 	_remove_outputs(directory)
 

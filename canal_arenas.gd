@@ -57,7 +57,8 @@ static func levels() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for entry: Dictionary in ENTRIES:
 		result.append({
-			"id": entry["id"], "title": entry["title"], "description": entry["description"],
+			"id": entry["id"], "title": entry["title"],
+			"description": "%d judges. Free practice." % int(entry["judges"]),
 			"icon": "res://games/sailor_man/assets/levels/%s.png" % entry["id"],
 		})
 	return result

@@ -14,8 +14,9 @@ a finished voyage or recorded salomero opponents.
   It declares `supports_multiplayer` and `local_multiplayer_turns`, with two seats.
   The game owns its placeholder rival; it does not offer a second generic
   vs-CPU setup mode.
-  Soundcheck, named calibration profiles and the free prototype gallery are
-  implemented. Campaign, production rival crews and store are not implemented.
+  Soundcheck, named calibration profiles, the free prototype gallery and
+  original toy cosmetics shop are implemented. Campaign and production rival
+  crews are not implemented.
 - Real canal place names are owner-approved without authority branding.
   Gatún, the lake, Culebra, Pedro Miguel and Pacific have original toy scenery.
   The owner chose freely selectable practice through the existing level selector,
@@ -38,9 +39,44 @@ a finished voyage or recorded salomero opponents.
 - The owner chose the blue launch's bow, plain crew and illustrative gold
   Remo ribbon for the captured PNG icon. It and the labelled walkthrough are
   prototype presentation, not a recorded captain or reviewed campaign art.
+- The owner chose the current plain crew aboard the blue/red player launch
+  for setup before a cosmetics shop. Its single `practice_launch` entry mounts
+  the shared plinth; it does not implement the production captain roster.
+- The owner chose four cosmetic kinds, earned Balboas and independent P1/P2
+  equipment. Shared ownership/wallet do not mean a shared outfit. Use original
+  toy designs only; no sombrero pintao, mola patterns or cultural gates.
+- The owner chose a three-card practice opening and expanded five-mark Guide,
+  with **player-paced** Next/Done rather than automatic card timing. This is
+  not the unreviewed five-card campaign story.
 - `tools/analyse_takes.gd` is read-only WAV analysis for the recording gate,
   not the later rival-track baking pipeline. Its provisional reports cannot
   certify authentic salomas, performer consent or cultural review.
+
+## Practice onboarding
+
+- `intro.tscn` extends `MenuScreen` and reuses the actual static gallery-stage
+  models. Register it only through the manifest's `intro_scene_path`; the
+  collection must retain the framework intro.
+- Cards wait indefinitely for Next. Done, Skip, Escape and controller B lead
+  to the normal title, not a match. Guard repeated exits, including an exit
+  requested during Router's incoming fade. Skip remains available on every card.
+- Keep original models static and hidden views stopped. Only opacity may
+  fade between cards; enabling Reduced motion mid-fade restores readable copy.
+  No narration, voice/profile/performance reads, capture, campaign state or
+  first-run persistence belongs here.
+- Controller extras are game-owned `_input` handling: A uses focused Skip,
+  otherwise Next/Done; left/right selects actions, up/down scrolls copy.
+  GUI navigation can consume D-pad events before `_unhandled_input`, and the
+  built-in UI accept/cancel actions are not guaranteed to contain pad bindings.
+  Do not mutate shared input maps to make this opening work.
+- The written Guide lives in manifest copy and the existing shared screen,
+  not a parallel rules menu. Keep the actual solo/hot-seat/echo/clock rules
+  and dynamically generated bindings. Aliento's five-second saturation is
+  not a demand; Altura uses source/profile-relative pitch and an unmeasured
+  microphone band remains provisional. Grito is Remate, and calls omit Eco.
+  Quiet Mode removes the carrying-level gate; no extra-volume reward.
+- The marks are game simplifications. Do not copy the pending campaign story
+  or unreviewed cultural claims into this prototype opening/Guide.
 
 ## Model contracts
 
@@ -109,6 +145,13 @@ a finished voyage or recorded salomero opponents.
 - Soundcheck is a game-owned **pre-duel button**, not a shared Settings action
   row. The overlay suspends duel stepping and blocks underlying input. Back,
   pause, focus loss and failure discard partial takes without touching a save.
+- The workbench and Soundcheck scrollers follow keyboard focus. Soundcheck
+  defers initial focus to Back, never Enable microphone. Label the actual
+  focused editor: a SpinBox's name/description must reach its internal LineEdit.
+  Duel profile metadata follows the active singer and selected calibration.
+- Workbench `_set_status` keeps stable feedback polite but disables live
+  announcements for changing elapsed-time text. Preserve visible timers and
+  every error/cancellation path; this does not change scoring or microphone consent.
 - The two-second room check alone is not full calibration. The dev workbench
   retains temporary manual references; gameplay uses the saved human profile.
   Keep that profile separate from Remo's authored band. Quiet Mode substitutes
@@ -200,6 +243,52 @@ a finished voyage or recorded salomero opponents.
   Elapsed duel time survives pause and resets on replay; do not confuse it
   with the chamber's between-turn clock.
 
+## Setup preview
+
+- `Options.CHARACTERS` and `character_preview.tscn` use the existing shared
+  setup contract. Reuse the actual `BoatRig`, canonical player paint and P1/P2
+  plaques with that seat's equipped outfit; extra colour, scene or profile
+  fields must not change the model.
+- Keep static, transparent, isolated Compatibility lighting and frame the actual
+  mesh vertices. Pre-ready configuration works; unchanged seats reuse their rig.
+  Invalid IDs/seats clear old geometry, show/log an error and stop rendering.
+  Hidden and nonfeatured seats do not render. No audio, capture, profile/
+  performance reads, scoring or persistence belongs in this presentation.
+- Arena setup summaries are compact and mode-neutral; Details explains solo
+  clocks versus untimed hot seat. The generic setup scroller owns briefing and
+  choices, reflow/focus, narrow seat stacking and compact action wrapping.
+
+## Shop and launch outfits
+
+- `Options.STORE_ITEMS`, `STORE_SLOTS` and `STORE_CURRENCY` declare twelve items:
+  four free original defaults and eight paid toy designs. Stable kinds are
+  `hat`, `pennant`, `paint`, `bow`; stable slots are `p1_hat`, `p1_pennant`,
+  `p1_paint`, `p1_bow` and the matching `p2_` slots. Never rename saved ids.
+- The existing Store owns the one Sailor wallet, purchases and equipment in
+  `user://store.cfg`. A purchase can dress either/both humans without repurchase;
+  it auto-equips the first matching still-default slot. Never add another save,
+  wallet, menu implementation or framework game-name branch.
+- Normally completed best-of-three duels earn
+  `round(best human's accumulated judge points / 10)`. Hot seat uses the higher
+  human total, not their sum. Ordinary solo synthetic-skiff wins add five;
+  echo/hot seat add no win bonus. Workbench, seeds, incomplete/abandoned duels
+  and chamber timeouts earn nothing. Bank exactly once through the shell.
+  A valid silent turn still has the judges' existing minimum paddle of one;
+  a completed three-judge silent loss can therefore earn one Balboa.
+- `world/launch_outfit.gd` validates canonical cosmetic ids and supplies batched
+  geometry. It and `BoatRig` resolve no autoload: controllers pass Store
+  explicitly. Rebuild only the rig's one surface; preserve mouth/attachment
+  anchors, ribbons, player paint/plaques and voice/scoring state.
+- `store_preview.tscn` reuses setup's original rig, but only the canonical item
+  id configures its static P1 advertisement. Ignore injected colours, kinds,
+  seats and profiles; do not read live equipment or open audio/capture.
+  Render on demand and frame actual ornament vertices.
+- Gameplay, setup and gallery show human equipment; the synthetic skiff/echo
+  remains plain. Freeze actual human outfit ids at results in `sailor_outfits`;
+  share art must never read live Store. Missing legacy outfit data means the
+  original launch. Invalid kinds/ids must log and explain the rejection;
+  hide cached preview textures and recover on valid equipment.
+
 ## Captured branding
 
 - `GameTheme` uses the full-colour `assets/game-icon.png`, preserving the
@@ -231,11 +320,13 @@ a finished voyage or recorded salomero opponents.
   P1/CPU/P2 plaques. Park ambient motion and stop hidden rendering. The stage
   must not read voice/profile/performance data, create audio/capture nodes or
   write settings/progress. Unknown exhibits must show an error, never old art.
+  Human launches read their equipped outfits; the skiff remains plain.
+  Equipment changes retain the viewer's orbit rather than resetting it.
 
 ## Share cards
 
 - `share_art.tscn` is registered through the existing manifest art hook.
-  Keep its original launches, plain crew and P1/P2 labels game-owned; no
+  Keep its original launches, toy crew and P1/P2 labels game-owned; no
   framework game-name branch or new publisher is needed.
 - Retain the highest **accepted normalized scorer total** per actual human,
   keeping the first on equal totals. Freeze the contour while its actual
@@ -244,7 +335,8 @@ a finished voyage or recorded salomero opponents.
   populate human artwork. Valid silence may be a best turn with no mesh.
 - Snapshots hold only frozen Mesh geometry and scalar captions, not raw
   frames, PCM, profiles, calibration names or devices. `sailor_art` is
-  renderer-only in-memory data; `sailor_stats` contains domain statistics.
+  renderer-only in-memory data, as are the frozen `sailor_outfits` cosmetic ids;
+  `sailor_stats` contains domain statistics.
   Never hand the complete rendering dictionary to a future public API.
 - Share totals use the shell's canonical `_scores`. A solo two-sided match
   may include opponent points in `score_values`; `player_count`, stat rows and
@@ -298,6 +390,9 @@ godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene
 godot --headless --path . --script res://games/sailor_man/tests/sailor_audio_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/gallery_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/art_capture_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/character_preview_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/store_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/onboarding_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
@@ -305,12 +400,15 @@ godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --gam
 godot --path . --script res://games/sailor_man/tests/share_card_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/gallery_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/art_capture_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/character_preview_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/store_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/onboarding_test.gd -- --game=all
 ```
 
-Fourteen distinct suites: twelve support headless runs; `canal_view_test.gd` and
+Seventeen distinct suites: fifteen support headless runs; `canal_view_test.gd` and
 `share_card_test.gd` require graphics and deliberately refuse `--headless`.
-Also run the three scene suites, gallery and art-capture suites with a window:
-seven windowed checks in total.
+Also run the three scene suites, gallery, art-capture, setup-preview, store
+and onboarding suites with a window: ten windowed checks in total.
 The four scene/canal windowed runs verify actual rendered layouts and accept
 `--sailor-capture-dir=<absolute directory>` after `--`. Use isolated user data
 for integration runs. On Windows, use the console executable or
@@ -323,6 +421,11 @@ offline command exit codes/JSON. Remo's scene checks route simulated key/pad/
 multitouch events through the actual viewport, including pause/resume. Pin a
 usable window size and UI scale before coordinate-based input checks, even
 headlessly, and resume the real pause menu rather than only freeing it.
+Workbench and Soundcheck checks dispatch actual Tab input across eight and
+sixteen size/profile/UI cases, without manually revealing focused controls.
+After forcing a scroll position, let queued layout settle before establishing
+fresh starting focus. Metadata assertions do not establish screen-reader speech,
+physical input hardware or controller-only navigation across shared menus.
 Native duel checks include full boat-mesh framing, an isolated 3D world,
 a nonempty render below 60 draw calls and all eight size/UI-scale combinations.
 The canal suite covers all five arenas, both singer framings/water endpoints,
@@ -352,6 +455,16 @@ leaks, caller-relative free Repeat, pause/recovery, per-singer rest, both shell
 scores and rematches. Both human handoffs/live/reviews cover all eight layouts,
 including Ready after final action-row layout, focused profile scrolling and
 actual P2 touch/gamepad input. Do not replace those with injected scored turns.
+Onboarding runs seven actual Router exit paths without letting duplicate-exit
+checks substitute for missing primary input. Native coverage is 40 layouts
+for opening cards and solo/hot-seat Guides, whole actions, legible text,
+scroll-reachable copy, complete actual model framing/pixels and a maximum of
+12 draws below 60. It checks pacing, held-key repeats, live Reduced motion,
+controller/mouse/emulated-touch routing, hidden views and audio/save isolation.
+Capture with `--sailor-onboarding-capture-dir=<absolute directory>`.
+Load autoload-dependent scenes at runtime. Even naming a `GameSession` enum
+in a headless dependency can pull in its autoload-dependent body; resolve
+that enum through the runtime node's script constant map instead.
 Share checks cover normalized-best selection/ties, frozen per-seat PCM geometry,
 privacy, silence/incomplete/scorer labels, seed/rival exclusion and replay.
 The share-card windowed run renders nine cases: six complete input-driven duels,
@@ -377,6 +490,22 @@ the transparent icon, preserve all five level stills, inspect gold/blue pixels
 at 512/64/32 sizes and verify actual title/picker rendering and share-logo wiring.
 The icon uses two measured draws against a ten-draw limit. Capture inspections
 with `--sailor-icon-capture-dir=<absolute directory>`.
+Setup-preview checks exercise actual collection/standalone solo/hot-seat rows,
+all five arenas, canonical rig replacement/rejection, P1/P2 identity and no
+audio/profile reads or save writes. The native run covers 24 solo/P1/P2 size/UI
+cases plus
+compact expanded Details, including actual focused-picker/Start visibility,
+whole-mesh framing, paint/face/plaque pixels, static frames and hidden rendering.
+Maximum 3 draws against a ten-draw limit; the three rejected-preview errors
+are intentional. Capture with `--sailor-setup-capture-dir=<absolute directory>`.
+Store checks exercise actual Buy/P2 Equip, shared ownership and independent
+slots, exact save reload/restoration, canonical previews and damaged-equipment
+recovery. Every item runs on both rigs (24 model cases); native checks render
+24 shelf previews, eight shop size/UI layouts and complete decorated
+match/setup/gallery/share framing. Preview maximum is 3 draws, below ten.
+Capture with `--sailor-store-capture-dir=<absolute directory>`. Duel checks
+settle seven real completed matches, verify actual Balboas/results, rounding,
+human-only totals, bonus exclusions and duplicate-settlement protection.
 These do not verify physical devices, OS permissions, acoustic output or real
 singers. Use `--audio-driver Dummy` for automated runs. Run all 15 framework
 suites with `--game=all` after integration changes. Keep `README.md` and
