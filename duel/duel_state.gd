@@ -5,13 +5,16 @@ extends RefCounted
 
 const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Judges = preload("res://games/sailor_man/duel/judges.gd")
+const Rivals = preload("res://games/sailor_man/duel/rival_book.gd")
 const NORMAL_WINDOW := 6.0
 const LONG_WINDOW := 9.0
 const SILENCE_SECONDS := 1.2
 const TAIL_SECONDS := 0.25
 const CHAMBER_SECONDS := 240.0
+const ECHO_DELAY := 0.6
 
-enum Phase { READY, RIVAL, PLAYER_READY, GUARD, LISTENING, REVIEW, REPEAT, COMPLETE }
+enum Phase { READY, RIVAL, PLAYER_READY, GUARD, LISTENING, REVIEW, REPEAT, COMPLETE,
+	ECHO_WAIT }
 enum Singer { PLAYER, RIVAL }
 
 var phase := Phase.READY
@@ -30,11 +33,17 @@ var window_seconds := NORMAL_WINDOW
 var window_elapsed := 0.0
 var chamber_left := CHAMBER_SECONDS
 var judge_count := 3
+var uses_chamber_clock := true
 var close_requested := false
 var repeat_used := false
+var echo_challenge := false
+var preparing_seed := false
+var echo_rival: Dictionary = {}
 
 var _chamber_seconds := CHAMBER_SECONDS
 var _guard_left := 0.0
+var _echo_left := 0.0
+var _echo_phase := Phase.RIVAL
 var _heard_voice := false
 var _silent_frames := 0
 var _received_frames := 0
@@ -42,7 +51,8 @@ var _received_frames := 0
 
 ## Retries discard duel-local results, never a save, calibration or achievement.
 func reset(
-	long_windows := false, chamber_seconds := CHAMBER_SECONDS, panel_size := 3
+	long_windows := false, chamber_seconds := CHAMBER_SECONDS, panel_size := 3,
+	chamber_clock := true, self_echo := false
 ) -> void:
 	assert(is_finite(chamber_seconds) and chamber_seconds > 0.0)
 	assert(panel_size in [3, 5])
@@ -63,16 +73,45 @@ func reset(
 	_chamber_seconds = chamber_seconds
 	chamber_left = chamber_seconds
 	judge_count = panel_size
+	uses_chamber_clock = chamber_clock
 	close_requested = false
 	repeat_used = false
+	echo_challenge = self_echo
+	preparing_seed = self_echo
+	echo_rival.clear()
+	_echo_left = 0.0
+	_echo_phase = Phase.RIVAL
 	_reset_window()
 
 
-## The rival always calls first; setup time does not consume the chamber clock.
+## The rival calls tanda one; self-echo first needs a fresh, unscored seed.
 func start() -> String:
 	if phase != Phase.READY:
 		return _error("Start a duel only from its ready card.")
-	phase = Phase.RIVAL
+	if preparing_seed:
+		singer = Singer.PLAYER
+		phase = Phase.PLAYER_READY
+	else:
+		phase = Phase.RIVAL
+	return ""
+
+
+## Seed capture uses the same guarded window, but cannot award points or a tanda.
+func finish_seed(
+	track: Array[Dictionary], profile: Dictionary, quiet_mode := false
+) -> String:
+	if not preparing_seed or phase != Phase.LISTENING:
+		return _error("A seed is accepted only inside the self-echo seed window.")
+	if track.size() > roundi(window_seconds * Frame.RATE_HZ):
+		return _error("The seed exceeds its listening window. Ready again to retry.")
+	var snapshot := Rivals.echo_rival(track, profile, quiet_mode)
+	if not bool(snapshot["valid"]):
+		return str(snapshot["error"])
+	echo_rival = snapshot
+	preparing_seed = false
+	singer = Singer.RIVAL
+	_reset_window()
+	_begin_playback(Phase.RIVAL)
 	return ""
 
 
@@ -91,7 +130,10 @@ func continue_duel() -> String:
 		call_track.clear()
 		repeat_used = false
 	_reset_window()
-	phase = Phase.PLAYER_READY if singer == Singer.PLAYER else Phase.RIVAL
+	if singer == Singer.PLAYER:
+		phase = Phase.PLAYER_READY
+	else:
+		_begin_playback(Phase.RIVAL)
 	return ""
 
 
@@ -115,16 +157,21 @@ func advance(delta: float) -> void:
 		between = 0.0
 	elif phase == Phase.GUARD:
 		between = minf(delta, _guard_left)
-	chamber_left = maxf(chamber_left - between, 0.0)
-	if chamber_left <= 0.0:
-		winner = Singer.RIVAL
-		reason = "chamber_timeout"
-		phase = Phase.COMPLETE
-		return
+	if uses_chamber_clock:
+		chamber_left = maxf(chamber_left - between, 0.0)
+		if chamber_left <= 0.0:
+			winner = Singer.RIVAL
+			reason = "chamber_timeout"
+			phase = Phase.COMPLETE
+			return
 	if phase == Phase.GUARD:
 		_guard_left = maxf(_guard_left - delta, 0.0)
 		if _guard_left <= Frame.TIME_TOLERANCE:
 			phase = Phase.LISTENING
+	elif phase == Phase.ECHO_WAIT:
+		_echo_left = maxf(_echo_left - delta, 0.0)
+		if _echo_left <= Frame.TIME_TOLERANCE:
+			phase = _echo_phase
 	elif phase == Phase.LISTENING:
 		window_elapsed = minf(window_elapsed + delta, window_seconds)
 		close_requested = close_requested or window_elapsed >= window_seconds
@@ -168,6 +215,8 @@ func accepted_frame_count() -> int:
 func finish_turn(result: Dictionary, track: Array[Dictionary], source: String) -> String:
 	if phase not in [Phase.RIVAL, Phase.LISTENING]:
 		return _error("A performance cannot score outside its singer's turn.")
+	if preparing_seed:
+		return _error("Finish the unscored seed before scoring a duel performance.")
 	var error := Judges.result_error(result)
 	if error.is_empty():
 		error = Frame.track_error(track)
@@ -205,8 +254,16 @@ func request_repeat() -> String:
 	if phase != Phase.PLAYER_READY or turn != 1 or call_track.is_empty() or repeat_used:
 		return _error("Repeat the rival's call once, before starting its answer.")
 	repeat_used = true
-	phase = Phase.REPEAT
+	_begin_playback(Phase.REPEAT)
 	return ""
+
+
+## Interrupted echoes restart with their quiet delay, not halfway through a take.
+func restart_playback() -> void:
+	if phase in [Phase.RIVAL, Phase.REPEAT]:
+		_begin_playback(phase)
+	elif phase == Phase.ECHO_WAIT:
+		_echo_left = ECHO_DELAY
 
 
 ## The normal cue and tail guard are still required after replaying a call.
@@ -219,7 +276,17 @@ func finish_repeat() -> String:
 
 ## Water is presentation; it must never change scoring, turns or clock speed.
 func chamber_fraction() -> float:
-	return clampf(1.0 - chamber_left / _chamber_seconds, 0.0, 1.0)
+	return clampf(1.0 - chamber_left / _chamber_seconds, 0.0, 1.0) \
+		if uses_chamber_clock else 0.0
+
+
+func _begin_playback(next_phase: Phase) -> void:
+	if echo_challenge:
+		_echo_phase = next_phase
+		_echo_left = ECHO_DELAY
+		phase = Phase.ECHO_WAIT
+	else:
+		phase = next_phase
 
 
 func _award_tanda() -> void:

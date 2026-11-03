@@ -22,11 +22,14 @@ func _run() -> void:
 	_test_sweep_and_retry()
 	_test_windows_and_guard()
 	_test_clock_and_repeat()
+	_test_open_water()
 	_test_refused_scores()
 	_test_judges()
 	_test_rival()
+	_test_self_echo()
+	_test_echo_snapshot()
 	if _failures.is_empty():
-		print("Duel state, judges and synthetic rival tests passed.")
+		print("Duel state, judges, synthetic rival and self-echo tests passed.")
 	else:
 		for failure in _failures:
 			printerr(failure)
@@ -184,6 +187,33 @@ func _test_refused_scores() -> void:
 		"Missing audio must not become a minimum-paddle performance.")
 
 
+func _test_open_water() -> void:
+	var duel := Duel.new()
+	duel.reset(false, 0.1, 5, false)
+	duel.start()
+	_finish(duel, 1.0)
+	duel.continue_duel()
+	var before := duel.chamber_left
+	duel.advance(900.0)
+	duel.request_repeat()
+	duel.advance(900.0)
+	duel.finish_repeat()
+	_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.winner == -1
+		and duel.chamber_left == before and duel.records.size() == 1
+		and is_zero_approx(duel.chamber_fraction()),
+		"Open water has no hidden between-turn deadline, including its free Repeat.")
+	_open_player(duel)
+	duel.advance(6.0)
+	_expect(duel.close_requested, "Untimed open water must still bound every scored window.")
+	_finish(duel, 1.0)
+	_expect((duel.records[-1]["judgement"]["paddles"] as Array).size() == 5
+		and duel.points == PackedInt32Array([50, 50]) and duel.wins[0] == 1,
+		"A Pacific tied tanda must count all five real paddles and still go to the answerer.")
+	duel.reset()
+	_expect(duel.uses_chamber_clock and duel.judge_count == 3,
+		"Returning from open water must restore default lock rules, not leak arena state.")
+
+
 func _test_judges() -> void:
 	var result := _result(0.0, false)
 	result["marks"]["aliento"] = 1.0
@@ -228,6 +258,95 @@ func _test_rival() -> void:
 	(rival["frames"] as Array).clear()
 	_expect(not (second["frames"] as Array).is_empty(),
 		"One take's mutation must not damage the next duel's authored data.")
+
+
+func _test_self_echo() -> void:
+	var duel := Duel.new()
+	duel.reset(false, Duel.CHAMBER_SECONDS, 3, false, true)
+	duel.start()
+	_expect(duel.preparing_seed and duel.phase == Duel.Phase.PLAYER_READY
+		and duel.singer == Duel.Singer.PLAYER and duel.records.is_empty(),
+		"Self-echo must first ask for a fresh player seed, not play the synthetic skiff.")
+	duel.cue_player()
+	duel.advance(0.24)
+	_expect(not duel.finish_seed(_track(), Frame.profile()).is_empty(),
+		"Neither a seed nor a scored turn may bypass the complete cue guard.")
+	duel.advance(0.01)
+	_expect(not duel.finish_turn(_result(0.5, false), _track(), "seed").is_empty(),
+		"The seed window must not accidentally award player points.")
+	var silence: Array[Dictionary] = [Frame.make(0.0, 0.0, false, 0.0)]
+	_expect(not duel.finish_seed(silence, Frame.profile()).is_empty()
+		and duel.echo_rival.is_empty() and duel.preparing_seed,
+		"Silence must give a retryable seed error, not a fictional silent opponent.")
+	duel.cancel_player()
+	_open_player(duel)
+	var seed := _track()
+	_expect(duel.finish_seed(seed, Frame.profile()).is_empty()
+		and duel.phase == Duel.Phase.ECHO_WAIT and not duel.preparing_seed
+		and duel.records.is_empty() and duel.points == PackedInt32Array([0, 0])
+		and duel.call_track.is_empty(),
+		"A seed must create only the frozen opponent, not scores or an Eco reference.")
+	duel.advance(0.59)
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT,
+		"An echo may not start before the full 600 ms quiet gap.")
+	duel.restart_playback()
+	duel.advance(0.59)
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT,
+		"Interrupting the gap must restart all 600 ms.")
+	duel.advance(0.01)
+	_expect(duel.phase == Duel.Phase.RIVAL and duel.singer == Duel.Singer.RIVAL,
+		"The completed seed must become the first rival call, not another player turn.")
+	duel.finish_turn(Rivals.score(duel.echo_rival), seed, "Seed echo")
+	duel.continue_duel()
+	var before := duel.chamber_left
+	duel.request_repeat()
+	duel.advance(Duel.ECHO_DELAY)
+	_expect(duel.phase == Duel.Phase.REPEAT and duel.records.size() == 1,
+		"Repeating an echo must retain its delay and never award a second call.")
+	duel.finish_repeat()
+	duel.advance(900.0)
+	_expect(duel.chamber_left == before and duel.phase == Duel.Phase.PLAYER_READY,
+		"The Culebra echo must retain untimed open-water rules.")
+	var shape := Fixture.shaped()
+	_open_player(duel)
+	duel.finish_turn(Scorer.score(shape, Frame.profile(), seed), shape, "Remo")
+	duel.continue_duel()
+	_open_player(duel)
+	duel.finish_turn(Scorer.score(shape, Frame.profile()), shape, "Remo")
+	duel.continue_duel()
+	duel.advance(Duel.ECHO_DELAY)
+	duel.finish_turn(Rivals.score(duel.echo_rival, shape), seed, "Seed echo")
+	_expect(duel.phase == Duel.Phase.COMPLETE and duel.wins[0] == 2
+		and duel.records.size() == 4,
+		"Actual shared scores must allow a reachable 2-0 win over the fixed seed.")
+	duel.reset(false, Duel.CHAMBER_SECONDS, 3, false, true)
+	_expect(duel.preparing_seed and duel.echo_rival.is_empty() and duel.records.is_empty(),
+		"Self-echo replay must require a new seed, never reuse the previous call.")
+	duel.reset()
+	duel.start()
+	_expect(not duel.echo_challenge and not duel.preparing_seed
+		and duel.phase == Duel.Phase.RIVAL and duel.echo_rival.is_empty(),
+		"Ordinary practice must retain its original start and never inherit an echo.")
+
+
+func _test_echo_snapshot() -> void:
+	var frames := _track()
+	for frame: Dictionary in frames:
+		frame["level"] = 0.3
+	var profile := Frame.profile()
+	var snapshot := Rivals.echo_rival(frames, profile, true)
+	var expected := Scorer.score(frames, profile, [], true)
+	frames[0]["cents"] = 900.0
+	profile["falsetto_high"] = 1800.0
+	var actual := Rivals.score(snapshot)
+	_expect(bool(snapshot["valid"]) and float(snapshot["frames"][0]["cents"]) == 0.0
+		and float(snapshot["profile"]["falsetto_high"]) == Frame.DEFAULT_FALSETTO_HIGH
+		and actual == expected and not bool(actual["power_gated"]),
+		"The echo must freeze actual frames, source profile and Quiet Mode together.")
+	var invalid := Frame.profile()
+	invalid["chest_hz"] = NAN
+	_expect(not bool(Rivals.echo_rival(_track(), invalid)["valid"]),
+		"A damaged seed profile must fail explicitly instead of becoming another rival.")
 
 
 func _player_ready(long_windows := false) -> Duel:

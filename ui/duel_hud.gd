@@ -5,6 +5,7 @@ extends PanelContainer
 
 signal action_requested
 signal repeat_requested
+signal echo_requested
 signal source_requested(microphone: bool)
 signal auto_source_requested
 signal soundcheck_requested
@@ -19,6 +20,7 @@ const Canal = preload("res://games/sailor_man/world/canal_view.gd")
 const Ribbon = preload("res://games/sailor_man/ui/voice_ribbon.gd")
 const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
+const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
 
 var lock: Canal
 var primary: Button
@@ -35,6 +37,7 @@ var _caption: Label
 var _actions: HFlowContainer
 var _sources: HFlowContainer
 var _practice: Button
+var _echo: Button
 var _remo_button: Button
 var _mic_button: Button
 var _auto_button: Button
@@ -43,7 +46,12 @@ var _source_status: Label
 var _rest_offer: VBoxContainer
 var _pause: Button
 var _rival_ribbon: Ribbon
+var _judge_box: VBoxContainer
+var _canal_caption: Label
+var _prototype_notice: Label
+var _rival_description: Label
 var _judges: Array[Label] = []
+var _arena := Arenas.arena(Arenas.GATUN)
 var _phase := -1
 var _use_microphone := false
 var _preference := 1.0
@@ -84,6 +92,8 @@ func _ready() -> void:
 		func() -> void: practice_requested.emit())
 	_soundcheck = _button(_actions, "Soundcheck", "Soundcheck",
 		func() -> void: soundcheck_requested.emit())
+	_echo = _button(_actions, "EchoChallenge", "Challenge your echo",
+		func() -> void: echo_requested.emit())
 	_sources = HFlowContainer.new()
 	column.add_child(_sources)
 	_auto_button = _button(_sources, "UseAuto", "Auto",
@@ -115,18 +125,19 @@ func _ready() -> void:
 	var details := VBoxContainer.new()
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info.add_child(details)
-	for judge: Dictionary in Judges.panel():
-		_judges.append(_label(details, "Judge_" + str(judge["id"]), ""))
-	_label(details, "CanalCaption", "Gat\u00fan practice lock - a toy canal, not a simulator.")
+	_judge_box = VBoxContainer.new()
+	details.add_child(_judge_box)
+	_set_panel(3)
+	_canal_caption = _label(details, "CanalCaption", str(_arena["caption"]))
 	lock = Canal.new()
 	lock.custom_minimum_size.y = 220
 	details.add_child(lock)
 	_rival_ribbon = Ribbon.new()
 	_rival_ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	details.add_child(_rival_ribbon)
-	_label(details, "RivalDescription",
+	_rival_description = _label(details, "RivalDescription",
 		"Practice skiff - synthetic tone and authored track, not a saloma recording.")
-	_label(details, "PrototypeNotice",
+	_prototype_notice = _label(details, "PrototypeNotice",
 		"Best of three tandas. Ties go to the answerer. The chamber clock pauses "
 		+ "inside performances. No lives or progress are lost. Real voices, cultural "
 		+ "review and the voyage remain pending. Soundcheck stores measurements, not audio.")
@@ -139,6 +150,21 @@ func _ready() -> void:
 	if settings != null:
 		settings.connect("changed", _on_setting_changed)
 	_fit.call_deferred()
+
+
+## Setup owns the selection; this view owns only its caption and toy location.
+func configure_arena(arena_id: String) -> bool:
+	var selected := Arenas.arena(arena_id)
+	if selected.is_empty() or not lock.configure(arena_id):
+		return false
+	_arena = selected
+	_canal_caption.text = str(_arena["caption"])
+	_prototype_notice.text = "Best of three tandas. Ties go to the answerer. " + (
+		"The chamber clock pauses inside performances. " if bool(_arena["clock"])
+		else "Open water has no between-turn deadline. "
+	) + "No lives or progress are lost. Real voices, cultural review and the voyage remain "
+	_prototype_notice.text += "pending. Soundcheck stores measurements, not audio."
+	return true
 
 
 ## The real practice/input scene is reused, rather than a second input/scorer path.
@@ -207,32 +233,44 @@ func present(
 	var changed := _phase != state.phase
 	_phase = state.phase
 	_use_microphone = microphone
-	var role := "CALL" if state.turn == 0 else "ANSWER"
-	var actor := "P1" if state.singer == Duel.Singer.PLAYER else "CPU"
+	var opponent := "ECHO" if state.echo_challenge else "CPU"
+	var role := "SEED" if state.preparing_seed else ("CALL" if state.turn == 0 else "ANSWER")
+	var actor := "P1" if state.singer == Duel.Singer.PLAYER else opponent
 	_turn.text = "T%d %s %s" % [state.tanda, actor, role]
+	if state.preparing_seed:
+		_turn.text = "YOUR SEED CALL - UNSCORED"
 	if state.phase == Duel.Phase.LISTENING:
-		_turn.text = "YA! T%d %s | %s | %.1f s" % [
-			state.tanda, role, "Microphone" if microphone else "Remo tone",
+		var turn_name := "SEED" if state.preparing_seed else "T%d %s" % [state.tanda, role]
+		_turn.text = "YA! %s | %s | %.1f s" % [
+			turn_name, "Microphone" if microphone else "Remo tone",
 			maxf(state.window_seconds - state.window_elapsed, 0.0),
 		]
 	elif state.phase == Duel.Phase.READY:
 		_turn.text = "SAILOR MAN - PRACTICE DUEL"
 	elif state.phase == Duel.Phase.COMPLETE:
-		_turn.text = "P1 WINS" if state.winner == Duel.Singer.PLAYER else "CPU WINS"
-	_clock.text = "Tandas P1 %d - %d CPU | Chamber %d:%02d" % [
-		state.wins[0], state.wins[1],
+		_turn.text = "P1 WINS" if state.winner == Duel.Singer.PLAYER else opponent + " WINS"
+	elif state.phase == Duel.Phase.ECHO_WAIT:
+		_turn.text = "YOUR ECHO RETURNS - 600 ms"
+	var clock := "Chamber %d:%02d" % [
 		int(ceil(state.chamber_left)) / 60, int(ceil(state.chamber_left)) % 60,
 	]
+	_clock.text = "Tandas P1 %d - %d %s | %s" % [
+		state.wins[0], state.wins[1], opponent,
+		clock if state.uses_chamber_clock else "Open water - no chamber deadline",
+	]
+	if state.preparing_seed:
+		_clock.text = "Seed setup | %.0f s window" % state.window_seconds
 	_caption.text = message
 	primary.disabled = state.phase in [
 		Duel.Phase.RIVAL, Duel.Phase.REPEAT, Duel.Phase.GUARD, Duel.Phase.LISTENING,
+		Duel.Phase.ECHO_WAIT,
 	]
 	primary.text = "Continue"
 	primary.tooltip_text = ""
 	if state.phase == Duel.Phase.READY:
 		primary.text = "Start duel"
 	elif state.phase == Duel.Phase.PLAYER_READY:
-		primary.text = "Ready"
+		primary.text = "Ready: seed call" if state.preparing_seed else "Ready"
 		primary.tooltip_text = "Start your microphone turn." if microphone \
 			else "Start your Remo turn."
 		primary.disabled = microphone and not microphone_ready
@@ -240,7 +278,13 @@ func present(
 		primary.text = "Results / Retry"
 	repeat.visible = state.phase == Duel.Phase.PLAYER_READY and state.turn == 1
 	repeat.disabled = state.repeat_used
+	repeat.text = "Repeat call" if state.uses_chamber_clock else "Repeat call (free)"
 	_practice.visible = state.phase == Duel.Phase.READY
+	_echo.visible = str(_arena["id"]) == Arenas.CULEBRA and (
+		state.phase == Duel.Phase.READY
+		or (state.phase == Duel.Phase.PLAYER_READY and state.preparing_seed))
+	_echo.text = "Skiff practice" if state.echo_challenge else "Challenge your echo"
+	_echo.tooltip_text = "A fresh, unscored seed becomes your fixed opponent in best-of-three."
 	_soundcheck.visible = state.phase in [Duel.Phase.READY, Duel.Phase.PLAYER_READY]
 	_sources.visible = state.phase in [Duel.Phase.READY, Duel.Phase.PLAYER_READY]
 	_auto_button.disabled = source_preference == Options.InputSource.AUTO
@@ -248,9 +292,20 @@ func present(
 	_mic_button.disabled = source_preference == Options.InputSource.MICROPHONE
 	_source_status.text = source_status
 	_source_status.visible = _sources.visible
-	_rest_offer.visible = rest_due and state.phase in [Duel.Phase.READY, Duel.Phase.COMPLETE]
+	_rest_offer.visible = rest_due and (state.phase in [Duel.Phase.READY, Duel.Phase.COMPLETE]
+		or (state.preparing_seed and state.phase == Duel.Phase.PLAYER_READY))
+	_rival_description.text = (
+		"Your echo uses a frozen seed contour and neutral synthetic tone, "
+		+ "never recorded or live microphone audio."
+	) if state.echo_challenge else (
+		"Practice skiff - synthetic tone and authored track, not a saloma recording.")
+	lock.boats[Duel.Singer.RIVAL].plaque.text = opponent
+	_canal_caption.text = "%s - self-echo challenge." % _arena["title"] \
+		if state.echo_challenge else str(_arena["caption"])
+	_set_panel(state.judge_count)
+	var panel := Judges.panel(state.judge_count)
 	for index in _judges.size():
-		var judge := Judges.panel()[index]
+		var judge := panel[index]
 		var p1 := "-"
 		var cpu := "-"
 		var note := "Waiting for a performance."
@@ -263,8 +318,8 @@ func present(
 			else:
 				cpu = str(paddle["points"])
 			note = str(paddle["note"])
-		_judges[index].text = "%s | %s x1.5 | P1 %s / CPU %s\n%s" % [
-			judge["badge"], str(judge["taste"]).capitalize(), p1, cpu, note,
+		_judges[index].text = "%s | %s x1.5 | P1 %s / %s %s\n%s" % [
+			judge["badge"], str(judge["taste"]).capitalize(), p1, opponent, cpu, note,
 		]
 	lock.present(state.chamber_fraction(), state.singer if state.phase in [
 		Duel.Phase.RIVAL, Duel.Phase.REPEAT, Duel.Phase.LISTENING,
@@ -272,6 +327,19 @@ func present(
 	_fit()
 	if changed and not primary.disabled:
 		primary.grab_focus.call_deferred()
+
+
+func _set_panel(count: int) -> void:
+	if _judges.size() == count:
+		return
+	for label in _judges:
+		label.owner = null
+		_judge_box.remove_child(label)
+		label.queue_free()
+	_judges.clear()
+	for judge: Dictionary in Judges.panel(count):
+		_judges.append(_label(_judge_box, "Judge_" + str(judge["id"]), ""))
+	_ui_unit = 0.0
 
 
 func _fit() -> void:

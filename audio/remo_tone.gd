@@ -7,11 +7,12 @@ const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const SAMPLE_RATE := 22050
 const CHEST_HZ := Frame.DEFAULT_CHEST_HZ
 const LOOP_SECONDS := 0.1
+const VOLUME_DB := -18.0
 
 
 func _ready() -> void:
 	bus = &"SFX"
-	volume_db = -18.0
+	volume_db = VOLUME_DB
 	var tone := AudioStreamWAV.new()
 	tone.format = AudioStreamWAV.FORMAT_16_BITS
 	tone.mix_rate = SAMPLE_RATE
@@ -27,7 +28,7 @@ func _ready() -> void:
 	stream = tone
 
 
-## Only Remo frames reach this preview; microphone audio is never monitored.
+## Live Remo and completed reference tracks use pitch alone, never microphone PCM.
 func play_frame(frame: Dictionary) -> void:
 	if not bool(frame["voiced"]):
 		stop()

@@ -21,8 +21,8 @@
 | Look-and-feel reference | `games/chicken_pit/` (3D world in a `SubViewport` under the 2D shell) |
 | Renderer | `gl_compatibility` — unchanged |
 
-**Current delivery:** a complete best-of-three practice duel against one
-explicitly synthetic skiff, with judges, an original toy Gatún lock,
+**Current delivery:** complete best-of-three practice duels in five freely
+selectable toy canal arenas against one explicitly synthetic skiff, with judges,
 opt-in microphone input and Remo. Practice retains the full scorer workbench.
 The source manifest exposes this single-player prototype, not the target
 campaign or multiplayer described below. English-first
@@ -34,8 +34,13 @@ not as a claim that recordings or review were completed. See `README.md` for
 what actually runs and `TODO.md` for verified progress.
 The first canal-presentation slice adds batched launches, mulas/gates/banks,
 plain crew/crowd and a source-relative world ribbon. Both boats remain framed;
-reduced motion parks decoration, not water/contours. Other arenas, modifiers
-and canal audio are not implemented. Real place names are approved without
+reduced motion parks decoration, not water/contours. The lake, cut/cable bridge,
+Pedro Miguel and Pacific/arch bridge now have original scenery, clear practice
+clock/judge variants and scene-derived setup icons. Non-vocal canal audio is
+microphone-aware. Culebra now offers a separate, seeded self-echo challenge:
+best-of-three against a completed in-memory contour, not live microphone audio.
+The campaign encounters/progression and cruise music remain pending.
+Real place names are approved without
 authority branding; that does not verify geography or cultural claims.
 
 ---
@@ -436,6 +441,15 @@ The game compresses the canal freely. It is a toy-model canal, not a simulator.
 Use the manifest's `levels` with achievement gates, like Cube Trials. Each level
 has an `icon` captured from the real scene by `tools/capture_art.gd`.
 
+**Current owner-approved development access:** `canal_arenas.gd` exposes
+`gatun`, `lake`, `culebra`, `pedro_miguel` and `pacific` as **free practice**
+through that existing selector, with captured 640x360 icons. Every arena uses
+the same explicitly synthetic skiff, not the encounters or gates in the target
+campaign table below. Selection is session-local and survives duel replay;
+it awards no voyage progress. Culebra also offers a separate optional self-echo
+challenge. Its mechanic is implemented in free practice, not as the voyage
+boss encounter in the target table.
+
 | # | Level | Duels | Boss (in the lock) | Mechanic introduced | Unlocked by |
 | --- | --- | --- | --- | --- | --- |
 | 1 | **Bahía Limón & Gatún** | Tutorial: the old fisherman; a pilot launch | **Las Mulas** — the lock's locomotive crew | Calls, answers, Aliento; the chamber fills | always |
@@ -460,6 +474,37 @@ Each arena changes the duel's **presentation and one rule**, never the scorer:
   only who calls changes.
 - **Pacific** — a festival panel of five judges, not three. The two extra
   paddles widen the spread, so a perfect turn reads as a perfect turn.
+
+**Implemented practice interpretation:** Gatún rises and Pedro Miguel descends
+against the same four-minute lock clock. Lake, Cut and Pacific practice are
+untimed between turns, so their once-only Repeat consumes no clock time.
+Six/nine-second listening windows, actual-silence closure, the cue/guard and
+the shared scorer are unchanged. Lake drift is small enough to keep both
+identities framed and parks under reduced motion; its contour follows the
+source without changing samples. Pacific evaluates/displays all five neutral
+development judges, with a 50-point per-turn maximum.
+
+**Owner-approved self-echo structure:** **Challenge your echo** on Culebra's
+ready card opens a separate best-of-three challenge, leaving normal skiff
+practice unchanged. First make an **unscored seed** through the same six/nine-
+second window and 250 ms cue guard. Only a completed voiced call can seed it;
+silence, failed capture and cancellation remain retryable without an opponent
+or awarded points. Silence during a later competitive turn is still scored normally.
+
+The seed's consecutive frames, actual source profile and Quiet Mode are copied
+and fixed for that duel. The echo calls tanda one and answers with that same
+seed later; it does not replace itself with the player's newer calls.
+Every echo/repeat waits 600 ms before its contour and softer neutral synthetic
+tone return. Pause restarts the gap and playback. No live microphone monitoring,
+recorded-voice playback or persistent tracks are involved. Scoring, ties and
+the decider rule stay unchanged; there is no hidden handicap for a strong seed.
+The ECHO label appears on its boat, judge rows and results.
+
+Shell replay retains the challenge but requires a fresh seed. **Skiff practice**
+before seeding, or returning through Practice/Back to duel, drops echo mode.
+Selection is not saved and awards no voyage progress. Seed setup is excluded
+from competitive turn counts/maxima; completed voiced mic seeds still count
+toward the existing rest reminder.
 
 ---
 
@@ -521,10 +566,10 @@ sailor_man_options.gd         # constants-only: tunables, bindings, levels,
                               #   characters, store, gallery (loaded by path)
 gameplay.gd / .tscn           # extends GameShell; inherited scene of game_shell.tscn
 intro.tscn                    # five story cards (§1)
-duel/duel_state.gd            # node-free tanda/turn state machine, chamber clock
+duel/duel_state.gd            # node-free turns/clock, unscored seed and echo delay
 duel/saloma_scorer.gd         # node-free marks from a VoiceFrame track (§4.4)
 duel/judges.gd                # tastes, paddles, notes from scorer evidence
-duel/rival_book.gd            # rivals, their takes and difficulty variants
+duel/rival_book.gd            # synthetic take, frozen seed; later recorded rivals
 campaign/voyage.gd            # node-free level → duels → boss sequence
 voice/voice_frame.gd          # the shared frame shape
 voice/mic_capture.gd          # adapted from dead_metal_jam (muted bus, dead-mic test)
@@ -640,6 +685,13 @@ or glow. Budget: **below 60 draw calls** in a duel shot, enforced by
 - **Pacific** — the arched bridge, a hazy city skyline, the causeway and the
   festival boats dressed in bunting.
 
+All five practice dioramas now use those original batched motifs, with plain
+crew/spectators and no authority branding. They are toy interpretations, not
+reviewed reconstructions. Primary landmarks join the camera's framing bounds;
+open-water arenas have no residual chamber walls or tow lines. Pedro Miguel
+has cool evening colours and a small service town. The shared level selector's
+stills are regenerated from these same meshes by `tools/capture_art.gd`.
+
 ### 8.3 Palette and theme
 
 Drawn from the interior's festival colours and the canal's water *(tune)*:
@@ -747,7 +799,9 @@ repeat, guard, listening, Soundcheck, Practice and pause have no canal effects.
 Completion stops capture before final feedback; timeout has no false paddle cue.
 Meaningful simultaneous sounds share one caption in the visible duel HUD.
 The persistent YA header replaces the transient ready caption while listening.
-Title music is stopped, not inherited into the duel. The existing protected
+Title music is stopped, not inherited into the duel. Self-echo's 600 ms gap
+stays quiet; only its completed pitch snapshot drives a neutral tone at 6 dB
+below the normal preview, not a recording or live mic. The existing protected
 2400 Hz/60 ms ready cue remains: a conch-style replacement and cruise music
 are not implemented. Digital stops do not validate real acoustic room tails.
 
@@ -829,12 +883,12 @@ Game-tab button row), add data to `GameManifest`, never a game-name branch.
 ## 13. Tests — `tests/`
 
 Headless unless noted; each one is a standalone `SceneTree` script that exits 0.
-Currently implemented: `saloma_scorer_test.gd`, `voice_normalisation_test.gd`,
-`voice_pipeline_test.gd`, `remo_source_test.gd` and the prototype
-`sailor_scene_test.gd`. The other
-suites below describe later milestones. Run the scene suite without
-`--headless` too: it checks actual phone-to-ultrawide rendering and 150% UI
-size, without requesting microphone access.
+Eleven suites are implemented: the scorer, normalisation, pipeline, Remo,
+duel state/scene, calibration, Soundcheck scene, audio, practice scene and canal
+view suites. Only `canal_view_test.gd` requires a graphics window; also run all
+three scene suites without `--headless`. They check phone-to-ultrawide rendering
+and 150% UI without requesting microphone access. Rival-book and voyage suites
+below still describe later milestones.
 
 | Suite | Covers |
 | --- | --- |
@@ -842,13 +896,15 @@ size, without requesting microphone access.
 | `voice_normalisation_test.gd` | The same contour sung by a low and a high profile scores within 2 % |
 | `voice_pipeline_test.gd` | MPM on synthesized PCM, sample-rate/buffer independence, streaming normalization, octave guard, source-to-scorer integration and disabled-input failure |
 | `remo_source_test.gd` | Key and touch inputs produce the expected frames; an ideal Remo and an ideal sung performance score within 5 % |
-| `duel_state_test.gd` | Lead alternation, tanda ties to the answerer, best-of-three, decider leader, chamber clock pausing inside windows, retry |
+| `duel_state_test.gd` | Leads/ties/decider, optional clock, free Repeat, five judges, bounded windows; unscored seed validation, frozen profiles/Quiet Mode, echo delay and fresh-seed replay |
+| `duel_scene_test.gd` | Real input duels/results/replay, shared arena selection/icons/rules and Pacific judges; buffered-PCM self-echo seed, actual win/loss, safe delayed repeats/pause, source privacy and responsive seed/review layouts |
 | `rival_book_test.gd` | Every rival's every take loads, its stored score sits in its difficulty band, and a reachable player score beats each boss |
 | `voyage_test.gd` | Level order, achievement gates, free play after the champion, and that progress never regresses |
 | `voice_calibration_test.gd` | Profiles round-trip, dead-mic silence detection, missing-falsetto fallback |
+| `soundcheck_scene_test.gd` | Actual Room/Speak/Low/High/Call wizard, capture handoff, saved profiles, cancellation/failure, quiet source selection and native layouts |
 | `sailor_audio_test.gd` | Original PCM headroom/DC/loop seam, real owned playback, immediate quiet contexts and combined verdict captions; duel scenes also verify actual native caption layouts and source safety |
 | `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; hot-seat checks follow its implementation |
-| `canal_view_test.gd` *(window)* | Real render: both boats visible in the two-shot, ribbon readable, draw-call budget, portrait → ultrawide, Remo lane doesn't cover the singers |
+| `canal_view_test.gd` *(window)* | All five arenas over 40 size/UI cases, both singers/water endpoints, actual paint/contour/landmark pixels, complete primary landmarks, <60 draws, pause/hidden/reduced-motion/effects |
 
 The framework suites pick the game up automatically. Run them all with
 `--game=all` before calling a milestone done.
@@ -896,6 +952,6 @@ cruises; more rivals per level; a grito-only quick-fire mode; daily rival.
    the real duel and per-seat profile hand-off are implemented.
 6. **Grito — confirmed:** part of Remate, with no separate action.
 7. **Real places — confirmed:** use real canal place names, without any
-   canal-authority branding. The current Gatún practice lock is a toy
-   interpretation, not a factual reconstruction. Geography and cultural
+   canal-authority branding. The current practice arenas are toy
+   interpretations, not factual reconstructions. Geography and cultural
    statements marked *(verify)* still require review.

@@ -1,6 +1,6 @@
 extends GameShell
 
-## One shell round is one practice duel; the workbench remains independently usable.
+## One shell round is a skiff or seeded self-echo duel; Practice stays independent.
 ## Sources and presentation never decide the winner or bypass the shared scorer.
 
 const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
@@ -13,6 +13,7 @@ const CanalAudio = preload("res://games/sailor_man/audio/sailor_audio.gd")
 const Calibration = preload("res://games/sailor_man/voice/voice_calibration.gd")
 const VoiceRest = preload("res://games/sailor_man/voice/voice_rest.gd")
 const Soundcheck = preload("res://games/sailor_man/ui/soundcheck.tscn")
+const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
 
 @onready var _spike: Control = %ScorerSpike
 @onready var _duel_hud: Control = %DuelHud
@@ -29,6 +30,7 @@ var _rival_elapsed := 0.0
 var _rival_index := 0
 var _phase_seen := -1
 var _practice := false
+var _echo_challenge := false
 var _use_microphone := false
 var _message := ""
 var _duel_seconds := 0.0
@@ -52,7 +54,10 @@ func open_pause_menu() -> void:
 	_spike.call("stop_capture")
 	_duel.cancel_player()
 	_stop_sounds()
-	if _duel.phase in [Duel.Phase.RIVAL, Duel.Phase.REPEAT]:
+	if _duel.phase in [Duel.Phase.RIVAL, Duel.Phase.REPEAT, Duel.Phase.ECHO_WAIT]:
+		_duel.restart_playback()
+		if _duel.echo_challenge:
+			_phase_seen = -1
 		_rival_elapsed = 0.0
 		_rival_index = 0
 		_message = "Playback restarts from the same turn. " + str(_rival["caption"])
@@ -73,6 +78,7 @@ func _build_playfield() -> void:
 	_spike.connect("microphone_turn_completed", _on_microphone_turn_completed)
 	_duel_hud.connect("action_requested", _on_duel_action)
 	_duel_hud.connect("repeat_requested", _on_repeat)
+	_duel_hud.connect("echo_requested", _on_echo_requested)
 	_duel_hud.connect("source_requested", _on_source_requested)
 	_duel_hud.connect("auto_source_requested", _set_input_source.bind(Options.InputSource.AUTO))
 	_duel_hud.connect("soundcheck_requested", _open_soundcheck)
@@ -105,12 +111,20 @@ func _reset_round_state() -> void:
 	_spike.call("stop_capture")
 	_calls = 0
 	_duel_seconds = 0.0
-	_duel.reset(Settings.tunable_bool(Options.LONG_WINDOWS_KEY))
+	var arena := Arenas.arena(str(GameSession.selected_level().get("id", Arenas.GATUN)))
+	_echo_challenge = _echo_challenge and not _practice \
+		and str(arena["id"]) == Arenas.CULEBRA
+	_duel.reset(Settings.tunable_bool(Options.LONG_WINDOWS_KEY),
+		Duel.CHAMBER_SECONDS, int(arena["judges"]), bool(arena["clock"]), _echo_challenge)
+	_rival = {} if _echo_challenge else Rivals.practice_rival()
+	_rival_tone.volume_db = Tone.VOLUME_DB - (6.0 if _echo_challenge else 0.0)
 	_resolve_source()
+	_duel_hud.call("configure_arena", str(arena["id"]))
 	_duel_hud.call("reset_view")
 	_duel_hud.call("show_track", _duel.call_track, _duel.call_track, {},
 		_duel.window_seconds, Frame.profile())
 	_phase_seen = -1
+	_rival_frames = []
 	_rival_elapsed = 0.0
 	_rival_index = 0
 	_spike.call("configure_duel", not _practice, _use_microphone)
@@ -122,6 +136,8 @@ func _reset_round_state() -> void:
 		_duel_hud.call("mount_input", _spike)
 	_spike.show()
 	_duel_hud.visible = not _practice
+	if _echo_challenge:
+		_duel.start()
 	_apply_phase()
 
 
@@ -195,6 +211,15 @@ func _on_score_ready(result: Dictionary) -> void:
 		if _duel.phase != Duel.Phase.LISTENING:
 			push_warning("Sailor Man: refused a player score outside a listening turn.")
 			return
+		if _duel.preparing_seed:
+			var seed_error := _duel.finish_seed(_spike.get("_track"),
+				_spike.get("_profile"), bool(_spike.get("_quiet")))
+			if not seed_error.is_empty():
+				_on_turn_cancelled(seed_error)
+				return
+			_rival = _duel.echo_rival.duplicate(true)
+			_apply_phase()
+			return
 		var error := _duel.finish_turn(
 			result, _spike.get("_track"), "Microphone" if _use_microphone else "Remo"
 		)
@@ -247,7 +272,7 @@ func _player_stats(player_index: int) -> Dictionary:
 			{"label": "Longest breath", "value": "%.2f s" % breath},
 			{"label": "Source", "value": " / ".join(sources)
 				if not sources.is_empty() else "No completed turn"},
-			{"label": "CPU judge points", "value": str(_duel.points[1])},
+			{"label": "%s judge points" % _opponent_label(), "value": str(_duel.points[1])},
 		],
 	}
 
@@ -260,8 +285,8 @@ func _round_highlight_summary() -> String:
 	if _practice:
 		return "%d test calls checked. Real-voice validation is still pending." % _calls
 	var stats := _player_stats(PLAYER_ONE)
-	return "P1 %d - %d CPU | Best %.1f/100 | %d breaks | Breath %.2f s | %s" % [
-		_duel.wins[0], _duel.wins[1], float(stats["best_turn"]) * 100.0,
+	return "P1 %d - %d %s | Best %.1f/100 | %d breaks | Breath %.2f s | %s" % [
+		_duel.wins[0], _duel.wins[1], _opponent_label(), float(stats["best_turn"]) * 100.0,
 		int(stats["quiebres"]), float(stats["longest_breath"]), stats["source"],
 	]
 
@@ -270,11 +295,13 @@ func _describe_round_outcome(_one: int, _two: int) -> Dictionary:
 	if not _practice:
 		return {
 			"result": "P1 WINS THE DUEL" if _duel.winner == Duel.Singer.PLAYER
-				else "PRACTICE SKIFF WINS",
+				else ("YOUR ECHO WINS" if _duel.echo_challenge else "PRACTICE SKIFF WINS"),
 			"subtitle": "Chamber time expired. Retry costs no lives."
 				if _duel.reason == "chamber_timeout" else
-				"Tandas %d-%d; judges' points %d-%d. Synthetic development rival." % [
+				"Tandas %d-%d; judges' points %d-%d. %s" % [
 					_duel.wins[0], _duel.wins[1], _duel.points[0], _duel.points[1],
+					"Your fixed seed contour; neutral tone, not recorded voice."
+						if _duel.echo_challenge else "Synthetic development rival.",
 				],
 			"color": player_one_color if _duel.winner == Duel.Singer.PLAYER
 				else player_two_color,
@@ -326,8 +353,14 @@ func _apply_phase() -> void:
 				_message = str(_rival["caption"])
 				AudioManager.request_caption(_message)
 			Duel.Phase.PLAYER_READY:
-				_message = "Your answer: echo the call, then top it." if _duel.turn == 1 \
-					else "Your call: make your own shape. Calls do not score Eco."
+				_message = "Make a comfortable seed call. No points; only its fixed pitch "
+				_message += "contour returns. Nothing is saved."
+				if not _duel.preparing_seed:
+					_message = "Your answer: echo the call, then top it." if _duel.turn == 1 \
+						else "Your call: make your own shape. Calls do not score Eco."
+			Duel.Phase.ECHO_WAIT:
+				_message = "Your completed seed returns after 600 ms. Input is closed; "
+				_message += "only its contour and a neutral tone will play, not recorded voice."
 			Duel.Phase.GUARD:
 				AudioManager.stop_music(0.0)
 				_cue.cue()
@@ -344,7 +377,8 @@ func _apply_phase() -> void:
 				var record := _duel.records[-1]
 				_show_last_turn()
 				_message = "%s %s: %d judge points. %s" % [
-					"P1" if int(record["singer"]) == Duel.Singer.PLAYER else "CPU",
+					"P1" if int(record["singer"]) == Duel.Singer.PLAYER
+						else _opponent_label(),
 					"call" if int(record["turn"]) == 0 else "answer",
 					record["judgement"]["sum"],
 					"Review the paddles, then continue." if _duel.turn == 0
@@ -359,9 +393,12 @@ func _apply_phase() -> void:
 		_sync_canal_audio()
 		if _duel.phase == Duel.Phase.REVIEW:
 			_canal_audio.review("" if _duel.turn == 0 else (
-				"P1" if int(_duel.tandas[-1]["winner"]) == Duel.Singer.PLAYER else "CPU"))
+				"P1" if int(_duel.tandas[-1]["winner"]) == Duel.Singer.PLAYER
+					else _opponent_label()),
+				_duel.uses_chamber_clock)
 		elif _duel.phase == Duel.Phase.COMPLETE:
-			_canal_audio.complete("P1" if _duel.winner == Duel.Singer.PLAYER else "CPU",
+			_canal_audio.complete("P1" if _duel.winner == Duel.Singer.PLAYER
+				else _opponent_label(),
 				_duel.reason == "chamber_timeout")
 	_sync_hud()
 
@@ -395,7 +432,8 @@ func _advance_rival(delta: float) -> void:
 		_duel.finish_repeat()
 	else:
 		var result := Rivals.score(_rival, _duel.call_track)
-		var error := _duel.finish_turn(result, _rival_frames, "Synthetic rival")
+		var error := _duel.finish_turn(result, _rival_frames,
+			"Seed echo (neutral tone)" if _duel.echo_challenge else "Synthetic rival")
 		if not error.is_empty():
 			_message = error
 			push_error("Sailor Man rival: %s" % error)
@@ -422,7 +460,8 @@ func _on_turn_cancelled(reason: String) -> void:
 		_phase_seen = _duel.phase
 		_message = reason
 		_duel_hud.call("show_track", _duel.call_track, _duel.call_track, {},
-			_duel.window_seconds, _rival["profile"], Duel.Singer.RIVAL)
+			_duel.window_seconds, _spike.get("_profile") if _duel.preparing_seed
+				else _rival["profile"], Duel.Singer.RIVAL)
 		_sync_hud()
 
 
@@ -431,6 +470,15 @@ func _on_repeat() -> void:
 	if not error.is_empty():
 		_message = error
 	_apply_phase()
+
+
+func _on_echo_requested() -> void:
+	if _practice or str(GameSession.selected_level().get("id", "")) != Arenas.CULEBRA \
+			or not (_duel.phase == Duel.Phase.READY or (
+				_duel.preparing_seed and _duel.phase == Duel.Phase.PLAYER_READY)):
+		return
+	_echo_challenge = not _echo_challenge
+	_start_round()
 
 
 func _on_source_requested(microphone: bool) -> void:
@@ -457,7 +505,8 @@ func _sync_canal_audio() -> void:
 		and not get_tree().paused and _spike.get("_capture") == null \
 		and not bool(_spike.get("_recording")) and not bool(_spike.get("_remo_active")) \
 		and (_duel.phase == Duel.Phase.COMPLETE or (between and not _use_microphone))
-	_canal_audio.set_context(allowed, allowed and between and _duel.chamber_left > 0.0)
+	_canal_audio.set_context(allowed, allowed and between
+		and _duel.uses_chamber_clock and _duel.chamber_left > 0.0)
 
 
 func _load_voice_profile() -> void:
@@ -602,19 +651,25 @@ func _on_rest_remo() -> void:
 
 func _tanda_verdict() -> String:
 	var last := _duel.tandas[-1]
-	return "%s takes tanda %d (%d-%d). Tandas P1 %d - %d CPU." % [
-		"P1" if int(last["winner"]) == Duel.Singer.PLAYER else "CPU",
+	return "%s takes tanda %d (%d-%d). Tandas P1 %d - %d %s." % [
+		"P1" if int(last["winner"]) == Duel.Singer.PLAYER else _opponent_label(),
 		_duel.tanda, last["call_points"], last["answer_points"],
-		_duel.wins[0], _duel.wins[1],
+		_duel.wins[0], _duel.wins[1], _opponent_label(),
 	]
 
 
+func _opponent_label() -> String:
+	return "ECHO" if _duel.echo_challenge else "CPU"
+
+
 func _open_practice() -> void:
+	_echo_challenge = false
 	_practice = true
 	_start_round()
 
 
 func _return_to_duel() -> void:
+	_echo_challenge = false
 	_practice = false
 	_start_round()
 

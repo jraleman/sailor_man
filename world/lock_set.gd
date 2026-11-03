@@ -1,6 +1,6 @@
 extends Node3D
 
-## A compressed toy Gatun chamber, not a simulator or an authority-branded model.
+## A compressed toy chamber or open-water surface, never authority-branded.
 ## Water and tow lines follow presentation state without owning any round rules.
 
 const Builder = preload("res://games/sailor_man/world/mesh_builder.gd")
@@ -13,48 +13,21 @@ var tow_anchors: Array[Vector3] = []
 var _tethers: MultiMeshInstance3D
 
 
-func _init() -> void:
-	var builder := Builder.new()
-	for side: float in [-1.0, 1.0]:
-		builder.rounded_box(Vector3(side * 6.05, 0.2, 0), Vector3(1.15, 3.8, 13.0),
-			0.12, Style.CONCRETE)
-		builder.rounded_box(Vector3(side * 6.65, 2.13, 0), Vector3(2.4, 0.26, 13.2),
-			0.08, Style.CREAM)
-		for rail in [6.63, 7.12]:
-			builder.box(Vector3(side * rail, 2.30, 0), Vector3(0.06, 0.08, 12.6),
-				Style.INK)
-		for joint in 8:
-			var z := -5.8 + float(joint) * 1.65
-			builder.box(Vector3(side * 5.466, 0.35, z), Vector3(0.012, 3.1, 0.035),
-				Style.CONCRETE.darkened(0.20))
-			builder.cylinder(Vector3(side * 5.7, 2.40, z), 0.07, 0.35, Style.INK)
-		builder.beam(Vector3(side * 5.7, 2.55, -5.8),
-			Vector3(side * 5.7, 2.55, 5.75), 0.045, Style.INK)
-		_gate(builder, Vector3(side * 5.45, 0, -5.75), Vector3(0, 0, -4.85))
-		for z in [-2.5, 2.5]:
-			var at := Vector3(side * 6.88, 2.40, z)
-			_mula(builder, at)
-			tow_anchors.append(at + Vector3(-side * 0.38, 0.05, 0))
-	builder.build(self, "ChamberAndMulas", Style.material())
+func _init(with_lock := true) -> void:
+	if with_lock:
+		_build_chamber()
 	var surface := Builder.new()
-	surface.box(Vector3.ZERO, Vector3(10.9, 0.12, 12.5), Style.CANAL)
+	surface.box(Vector3.ZERO,
+		Vector3(10.9, 0.12, 12.5) if with_lock else Vector3(18.8, 0.12, 15.4),
+		Style.CANAL)
 	for row in 9:
 		var z := -5.3 + float(row) * 1.25
 		var x := -3.8 + float(row % 3) * 3.2
 		surface.box(Vector3(x, 0.063, z), Vector3(1.3, 0.006, 0.025),
 			Style.CANAL.lightened(0.28))
 	water = surface.build(self, "Water", Style.material())
-	var rope := Builder.new()
-	rope.cylinder(Vector3.ZERO, 0.018, 1.0, Style.INK, Vector3.ZERO, 6)
-	var instances := MultiMesh.new()
-	instances.transform_format = MultiMesh.TRANSFORM_3D
-	instances.mesh = rope.finish()
-	instances.instance_count = 8
-	_tethers = MultiMeshInstance3D.new()
-	_tethers.name = "TowLines"
-	_tethers.multimesh = instances
-	_tethers.material_override = Style.material()
-	add_child(_tethers)
+	if with_lock:
+		_build_tethers()
 
 
 ## Essential water state is independent of every decorative-motion preference.
@@ -78,6 +51,45 @@ func set_tow_points(points: Array[Vector3]) -> void:
 			basis.y *= a.distance_to(b)
 			_tethers.multimesh.set_instance_transform(index * 2 + segment,
 				Transform3D(basis, (a + b) * 0.5))
+
+
+func _build_chamber() -> void:
+	var builder := Builder.new()
+	for side: float in [-1.0, 1.0]:
+		builder.rounded_box(Vector3(side * 6.05, 0.2, 0), Vector3(1.15, 3.8, 13.0),
+			0.12, Style.CONCRETE)
+		builder.rounded_box(Vector3(side * 6.65, 2.13, 0), Vector3(2.4, 0.26, 13.2),
+			0.08, Style.CREAM)
+		for rail in [6.63, 7.12]:
+			builder.box(Vector3(side * rail, 2.30, 0), Vector3(0.06, 0.08, 12.6),
+				Style.INK)
+		for joint in 8:
+			var z := -5.8 + float(joint) * 1.65
+			builder.box(Vector3(side * 5.466, 0.35, z), Vector3(0.012, 3.1, 0.035),
+				Style.CONCRETE.darkened(0.20))
+			builder.cylinder(Vector3(side * 5.7, 2.40, z), 0.07, 0.35, Style.INK)
+		builder.beam(Vector3(side * 5.7, 2.55, -5.8),
+			Vector3(side * 5.7, 2.55, 5.75), 0.045, Style.INK)
+		_gate(builder, Vector3(side * 5.45, 0, -5.75), Vector3(0, 0, -4.85))
+		for z in [-2.5, 2.5]:
+			var at := Vector3(side * 6.88, 2.40, z)
+			_mula(builder, at)
+			tow_anchors.append(at + Vector3(-side * 0.38, 0.05, 0))
+	builder.build(self, "ChamberAndMulas", Style.material())
+
+
+func _build_tethers() -> void:
+	var rope := Builder.new()
+	rope.cylinder(Vector3.ZERO, 0.018, 1.0, Style.INK, Vector3.ZERO, 6)
+	var instances := MultiMesh.new()
+	instances.transform_format = MultiMesh.TRANSFORM_3D
+	instances.mesh = rope.finish()
+	instances.instance_count = tow_anchors.size() * 2
+	_tethers = MultiMeshInstance3D.new()
+	_tethers.name = "TowLines"
+	_tethers.multimesh = instances
+	_tethers.material_override = Style.material()
+	add_child(_tethers)
 
 
 func _gate(builder: Builder, hinge: Vector3, meeting: Vector3) -> void:

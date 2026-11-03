@@ -5,6 +5,16 @@ extends SceneTree
 
 const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
+const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
+const FEATURES := {
+	Arenas.GATUN: ["TropicalBanks"],
+	Arenas.LAKE: ["LakeIslands", "DistantShips", "HowlerCanopy"],
+	Arenas.CULEBRA: ["CutTerraces", "CentennialBridge"],
+	Arenas.PEDRO_MIGUEL: ["TropicalBanks", "PedroMiguelTown"],
+	Arenas.PACIFIC: [
+		"PacificCauseway", "PacificSkyline", "BridgeOfTheAmericas", "FestivalBoatsAndBunting",
+	],
+}
 
 var _failures := PackedStringArray()
 var _maximum_draws := 0
@@ -27,7 +37,9 @@ func _run() -> void:
 		_expect(DirAccess.make_dir_recursive_absolute(_capture_directory) == OK,
 			"Could not create the canal capture directory.")
 	GameCatalog.select(Options.GAME_ID)
-	get_root().get_node("GameSession").call("configure_single_player")
+	var session := get_root().get_node("GameSession")
+	session.call("configure_single_player")
+	session.call("set_level", Arenas.GATUN)
 	var settings := get_root().get_node("Settings")
 	var original: Dictionary = settings.get("_values").duplicate(true)
 	var values := original.duplicate(true)
@@ -59,6 +71,33 @@ func _run() -> void:
 	var viewport: SubViewport = canal.get("viewport")
 	_expect(viewport.find_world_3d() != get_root().find_world_3d(),
 		"The canal must own its world rather than share the shell's lighting or camera.")
+	for arena: Dictionary in Arenas.ENTRIES:
+		session.call("set_level", str(arena["id"]))
+		await _test_layouts(game, hud, canal, str(arena["id"]))
+	session.call("set_level", Arenas.GATUN)
+	game.queue_free()
+	await _settle()
+	await create_timer(0.1, true, false, true).timeout
+	settings.set("_values", original)
+	settings.call("save")
+	get_root().min_size = old_minimum
+	get_root().size = old_size
+	settings.call("_update_content_scale")
+	settings.call("apply_controls")
+	if _failures.is_empty():
+		print("Sailor canal view tests passed (%s, maximum %d draw calls)." % [
+			DisplayServer.get_name(), _maximum_draws,
+		])
+	else:
+		for failure in _failures:
+			printerr(failure)
+	quit(0 if _failures.is_empty() else 1)
+
+
+func _test_layouts(game: Node, hud: Control, canal: Control, arena_id: String) -> void:
+	var settings := get_root().get_node("Settings")
+	var values: Dictionary = settings.get("_values")
+	var viewport: SubViewport = canal.get("viewport")
 	for size in [Vector2i(320, 568), Vector2i(568, 320), Vector2i(1280, 720),
 			Vector2i(2560, 1080)]:
 		for scale: float in [1.0, 1.5]:
@@ -82,7 +121,9 @@ func _run() -> void:
 			game.call("_update_round", 0.6, 0.0)
 			await _settle()
 			_assert_live_input(game, hud, size, scale)
-			_capture_root("canal-input-%dx%d-ui%.1f.png" % [size.x, size.y, scale])
+			_capture_root("canal-%s-input-%dx%d-ui%.1f.png" % [
+				arena_id, size.x, size.y, scale,
+			])
 			_key(KEY_K)
 			game.call("_update_round", 0.12, 0.0)
 			_key(KEY_K, false)
@@ -106,29 +147,15 @@ func _run() -> void:
 					canal.call("present", fraction, singer)
 					canal.call("_process", 1.2)
 					await _settle()
-					var label := "%dx%d-ui%.1f-%s-water%.0f" % [
-						size.x, size.y, scale, "p1" if singer == 0 else "cpu", fraction,
+					var label := "%s-%dx%d-ui%.1f-%s-water%.0f" % [
+						arena_id, size.x, size.y, scale,
+						"p1" if singer == 0 else "cpu", fraction,
 					]
 					_assert_render(canal, label)
 					_capture(viewport.get_texture().get_image(), "canal-" + label + ".png")
+			if size == Vector2i(1280, 720) and scale == 1.0:
+				await _assert_landmarks(game, canal, arena_id)
 			await _assert_motion(game, hud)
-	game.queue_free()
-	await _settle()
-	await create_timer(0.1, true, false, true).timeout
-	settings.set("_values", original)
-	settings.call("save")
-	get_root().min_size = old_minimum
-	get_root().size = old_size
-	settings.call("_update_content_scale")
-	settings.call("apply_controls")
-	if _failures.is_empty():
-		print("Sailor canal view tests passed (%s, maximum %d draw calls)." % [
-			DisplayServer.get_name(), _maximum_draws,
-		])
-	else:
-		for failure in _failures:
-			printerr(failure)
-	quit(0 if _failures.is_empty() else 1)
 
 
 func _assert_live_input(game: Node, hud: Control, size: Vector2i, scale: float) -> void:
@@ -162,6 +189,9 @@ func _assert_render(canal: Control, label: String) -> void:
 		Viewport.RENDER_INFO_TYPE_VISIBLE, Viewport.RENDER_INFO_DRAW_CALLS_IN_FRAME)
 	_maximum_draws = maxi(_maximum_draws, draws)
 	_expect(draws > 0 and draws < 60, label + ": nonempty rendering must stay below 60 draws.")
+	for point: Vector3 in canal.get("_landmark_points"):
+		_expect(bounds.has_point(camera.unproject_position(point)),
+			label + ": the location's complete primary landmark must remain framed.")
 	for index in 2:
 		var boats: Array = canal.get("boats")
 		var boat: Node3D = boats[index]
@@ -193,6 +223,33 @@ func _assert_render(canal: Control, label: String) -> void:
 			visible_contour += int(_gold_near(image, projected))
 	_expect(visible_contour >= 2,
 		label + ": the actual lit scene must expose the contour, not bury it behind a launch.")
+
+
+func _assert_landmarks(game: Node, canal: Control, arena_id: String) -> void:
+	game.call("_set_reduced_motion_enabled", true)
+	await _settle()
+	var viewport: SubViewport = canal.get("viewport")
+	var scenery: Node3D = canal.get("_scenery")
+	for name: String in FEATURES[arena_id]:
+		var mesh := scenery.get_node_or_null(name) as MeshInstance3D
+		_expect(mesh != null, arena_id + ": missing authored feature " + name)
+		if mesh == null:
+			continue
+		var before := viewport.get_texture().get_image()
+		mesh.hide()
+		await _settle()
+		var after := viewport.get_texture().get_image()
+		var changed := 0
+		for y in range(0, before.get_height(), 2):
+			for x in range(0, before.get_width(), 2):
+				var a := before.get_pixel(x, y)
+				var b := after.get_pixel(x, y)
+				changed += int(absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.08)
+		_expect(changed >= (4 if name == "HowlerCanopy" else 30),
+			"%s: %s must affect real pixels, not hide inside another mesh." % [arena_id, name])
+		mesh.show()
+		await _settle()
+	game.call("_set_reduced_motion_enabled", false)
 
 
 func _assert_motion(game: Node, hud: Control) -> void:

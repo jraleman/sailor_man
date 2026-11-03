@@ -1,8 +1,8 @@
 # Sailor Man
 
-A saloma call-and-response game in development. The current delivery is a
-**playable toy-canal duel against one explicitly synthetic practice skiff**,
-using the shared voice scorer, Remo controls or an opt-in microphone. The
+A saloma call-and-response game in development. The prototype offers
+**five free toy-canal arenas for synthetic-skiff practice**, plus an optional
+Culebra self-echo challenge, using the same scorer, Remo or an opt-in microphone. The
 finished canal campaign, recorded rival crews and hot seat are not implemented.
 
 ## Run the prototype
@@ -14,7 +14,9 @@ godot --headless --path . --import
 godot --path . -- --game=sailor_man
 ```
 
-Choose **Play**, then **Start duel**. **Practice** opens the full scorer
+Choose **Play**, select a **Practice arena** in setup, then **Start duel**.
+All five are freely selectable; these are not unlocked voyage levels.
+**Practice** opens the full scorer
 workbench; **Back to duel** starts a fresh duel. For the development-only
 workbench without the shell:
 
@@ -35,19 +37,25 @@ a profile nor selecting Microphone opens hardware. After Ready, recording
 begins only when the guard finishes.
 Cue playback is explicitly stopped before admitting the scored input.
 
-Three neutral development judges prefer Quiebre, Aliento and Eco. Each
+Three neutral development judges prefer Quiebre, Aliento and Eco. The Pacific
+adds Remate and Altura judges, for five actual paddles and a 50-point maximum
+per turn instead of 30. Each
 multiplies that mark's weight by 1.5, renormalizes the same scorer's marks,
 and shows a 1-10 paddle with an evidence note. Calls omit Eco. The higher
 judge-point total wins a tanda; a tie goes to its answerer. The player calls
 tanda two. If a decider is needed, the loser of the closer tanda calls it;
 equal winning margins use the loser of tanda two.
 
-Win two tandas to finish. The four-minute chamber clock pauses inside scored
-performances; reviewing, getting ready and repeating consume between-turn
-time. Time expiring awards the rival the duel, not a lost life. The toy
-3D lock's water follows this clock. **Results / Retry** opens the real shell
+Win two tandas to finish. In either lock, the four-minute chamber clock pauses
+inside scored performances; reviewing, getting ready and repeating consume
+between-turn time. Time expiring awards the rival the duel, not a lost life.
+Open-water practice has no between-turn deadline; its once-only Repeat is free.
+The six/nine-second scored windows and tail guard still apply in every arena.
+The toy lock's water follows its clock, rising at Gatún and falling at Pedro
+Miguel. **Results / Retry** opens the real shell
 results, with judge totals, tandas, best turn, breaks, longest breath and input
-source; replay clears duel-local scores, tracks and references.
+source; replay keeps the selected arena but clears duel-local scores, tracks
+and references. Arena selection is session-local and writes no voyage progress.
 
 The window closes at six seconds, nine with Longer listening windows, or
 after 1.2 seconds of actual silence following voice. Audio buffered after
@@ -61,10 +69,23 @@ The skiff's authored track and synthetic tone are development placeholders,
 not performer recordings. Turn gating and tail protection are implemented,
 but real room reverb, devices and permissions still need physical QA.
 
-## The toy Gatún lock
+## Five toy practice arenas
 
-The practice duel now uses original batched launch, chamber, miter-gate,
-rail-mounted mula, palm and crowd meshes in its own Compatibility viewport.
+The shared setup selector reads `canal_arenas.gd` through `GameManifest.levels`;
+`GameSession.selected_level()` supplies gameplay's arena. No new framework
+branches, selector, settings key or campaign achievement gate is involved.
+
+| Arena | Practice rules | Original scenery |
+| --- | --- | --- |
+| Gatún practice lock | Rising chamber; four-minute clock; three judges | Miter gates, rail-mounted mulas, palms and wall crowd |
+| Lago Gatún | Untimed between turns; free Repeat; three judges | Jungle islands, canopy howlers, distant generic ships and gentle rival drift |
+| Corte Culebra | Untimed skiff practice or a separate seeded self-echo challenge; three judges | Red-earth terraces and a toy cable-stayed Centennial Bridge |
+| Pedro Miguel | Descending chamber; four-minute clock; three judges | Lock, plain service houses and cool evening colours |
+| Miraflores & the Pacific | Untimed between turns; five judges | Arched Bridge of the Americas, skyline, causeway and boats with bunting |
+
+These are batched meshes in an isolated Compatibility viewport, not final
+campaign encounters. Culebra's optional self-echo challenge uses a completed
+pitch-track snapshot, never delayed microphone audio or live monitoring.
 Both boats retain blue/red paint, pennants and explicit **P1 / CPU** labels.
 Their plain toy crew imply no named captain or traditional costume. The same
 boat rig exposes empty hat/bow attachment slots for later cosmetics; no shop
@@ -78,24 +99,64 @@ scorer's existing break evidence, not another detector or scoring path.
 Cancellation restores the scored reference rather than displaying a partial
 take as a finished performance.
 
-Reduced motion parks the two-shot, bobbing and crowd waves immediately;
+Reduced motion parks the two-shot, lake drift, bobbing and crowd waves immediately;
 essential water and contour updates still work. Turning intense effects off
 omits review diamonds, not the pitch contour. Pause stops decorative time,
 and deliberately hidden layouts/overlays stop the viewport's rendering.
 Narrow listening still gives priority to the input ribbon and Break controls.
 
 Real place names are owner-approved **without canal-authority branding**.
-This is a compressed toy practice lock, not a simulator or a reviewed factual
-reconstruction. Lake/cut/bridge/Pacific scenery, arena modifiers, cruise music,
-the voyage and cultural review remain future work.
+These are compressed toy interpretations, not a simulator or reviewed factual
+reconstructions. Cruise music, campaign encounters/progression and cultural
+review remain future work.
+
+The setup's five 640x360 PNG icons are captured from these same real meshes,
+not separate promotional drawings. Regenerate them from `godot-base/` with a
+graphics window, then reimport:
+
+```powershell
+godot --audio-driver Dummy --path . --script res://games/sailor_man/tools/capture_art.gd -- --game=all
+godot --headless --path . --import
+```
+
+## Culebra self-echo challenge
+
+Select **Corte Culebra**, then **Challenge your echo** on its ready card.
+Press **Ready: seed call**, wait through the normal cue/250 ms guard and make
+a comfortable call with Remo or an explicitly enabled microphone. The seed
+earns no judge points or tandas. Silence, missing PCM and interrupted seeds
+remain visible, retryable failures; an unfinished take cannot become the opponent.
+**Skiff practice** returns to the ordinary ready card before seeding.
+
+The completed seed's 100 Hz frames, scoring profile and Quiet Mode are copied
+together and stay fixed for the whole best-of-three duel. After **600 ms of
+silence**, its contour returns with a neutral synthetic tone, 6 dB softer than
+the normal Remo preview. Every echo turn and once-only free Repeat uses that
+delay; pausing playback restarts the full gap and the same take. The **ECHO**
+boat/paddles are not another recorded crew. No microphone audio is monitored,
+replayed or saved, and no seed tracks persist.
+
+The echo calls tanda one; you call tanda two. The shared scorer, numbered
+paddles, answerer-wins-ties and closer-tanda decider rules are unchanged.
+Your later calls do not replace the seed, and changing source, calibration
+or Quiet Mode affects new player turns, not that frozen opponent. A strong
+seed can be difficult to beat; no hidden handicap weakens it.
+
+Wins and losses reach shell results. Replay keeps the challenge but requires
+a **fresh seed**, with no automatic microphone activation. Practice/Back to
+duel returns to ordinary skiff practice. The seed is excluded from result
+counts/maxima but a completed voiced microphone seed still counts toward
+the existing rest reminder. This is free practice, not a voyage boss encounter
+or a campaign unlock.
 
 ## Canal audio
 
 Original synthesized lock horn, filling-water wash, applause, paddle clack and
 mula bell use game-owned players on the normal **SFX** bus. These are non-vocal
 toy effects, not performer recordings. Water is decorative and runs only
-between Remo turns; the visible chamber clock remains authoritative. Reviews
-clack the paddles, a won tanda adds a bell/applause, and a judged duel finish
+between Remo turns in locks only; open water has no filling loop. The visible
+chamber clock remains authoritative. Reviews clack the paddles, a tanda review
+adds applause (and a mula bell in locks only), and a judged duel finish
 gets horn/paddles/applause. A chamber timeout gets only its horn.
 
 Reference playback, Repeat, the guard and listening never have competing
@@ -232,8 +293,11 @@ automated bounded-processing coverage, not browser/device performance QA.
   100 Hz track contract, with a synthetic pitch preview and no microphone access.
 - Deterministic best-of-three duel state, weighted judges, a beatable synthetic
   rival, call repeats, chamber/turn clocks and guarded source admission.
-- Original primitive boats and lock in an isolated compatibility viewport,
-  numeric P1/CPU paddles, captions and responsive duel/input presentation.
+- Five freely selectable, original toy canal arenas in an isolated Compatibility
+  viewport, rising/descending locks, free open-water Repeat and five Pacific
+  judges, with captured setup icons and no campaign gates.
+- Original boats, numeric P1/CPU paddles, source-relative world ribbons,
+  captions and responsive duel/input presentation.
 - Original owned canal SFX, microphone-quiet ambience rules and combined,
   responsive audio captions; no cruise music or performer samples.
 - Guided Soundcheck, named scalar profiles, saved source choice, optional
@@ -363,11 +427,26 @@ before shutdown; these Dummy-driver checks do not establish acoustic safety.
 Canal checks render both singer framings at both water endpoints in all eight
 size/UI combinations, inspect actual launch paint and visible contour pixels,
 and verify labels, pause, hidden-view shutdown and accessibility toggles.
-The native maximum is **21 draw calls**, below the 60-draw budget.
+All five arenas run through that matrix: **40 arena/size/UI combinations**.
+Hiding individual scenery batches must change real pixels, including canopy
+howlers; landmark bounds alone are not sufficient. The measured native maximum
+is **23 draw calls**, below the 60-draw budget.
 Headless regressions cover source-relative/amplitude-independent geometry,
 silent gaps, water changes under reduced motion and clearing/retrying tracks.
 Native duel checks also verify that articulated tow lines stay attached.
 Pass `--sailor-capture-dir=<absolute directory>` after `--` for captures.
+Scene checks also select all five icons through the real setup picker, verify
+both lock deadlines/water directions, free repeats without ghost lock geometry,
+drift-attached contours, all five actual judge rows/maxima, and a complete
+five-judge Remo win through shell results/replay.
+
+Self-echo checks cover rejected/paused/missing seeds, the complete 600 ms gap,
+frozen profiles/Quiet Mode, discarded idle PCM, softer synthetic playback,
+delayed repeats and restarted/captioned returns after pause. A real buffered-PCM
+seed faces actual Remo input through a 2-0 win; a fresh Remo seed also reaches
+an echo win and the real shell result label. Replay drops every old snapshot.
+Native runs check seed-ready/listening and echo review in all eight layouts,
+including the ECHO boat label, visible controls and complete boat framing.
 
 Soundcheck checks feed synthesized PCM through the real wizard, detector and
 normalizer, including a queued Stop, observed versus skipped high band,
@@ -411,7 +490,7 @@ scores as passing the real-recording milestone gate.
 
 The owner authorized Remo and grey-box duel work assuming that real-voice
 validation works. That assumption does not mark its unchecked gate complete.
-Recorded rival crews, the remaining canal arenas, campaign and two-player hot seat
+Recorded rival crews, campaign encounters/progression and two-player hot seat
 remain future work. See `DESIGN.md` and `TODO.md`.
 
 Re-record the labelled duel walkthrough only when its visuals/captions change.

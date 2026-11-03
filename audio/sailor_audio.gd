@@ -45,15 +45,17 @@ func set_context(allowed: bool, water_flowing: bool) -> void:
 
 ## One combined caption keeps simultaneous clack/bell/applause from overwriting
 ## each other in the shared caption widget. Empty winner means a call review.
-func review(tanda_winner := "") -> void:
+func review(tanda_winner := "", in_lock := true) -> void:
 	if not _allowed:
 		return
 	_players[Sound.PADDLE].play()
 	var text := "Paddles clack: judges show their scores."
 	if not tanda_winner.is_empty():
-		_players[Sound.MULA_BELL].play()
+		if in_lock:
+			_players[Sound.MULA_BELL].play()
 		_players[Sound.APPLAUSE].play()
-		text = "Paddles, bell, applause: %s wins the tanda." % tanda_winner
+		text = ("Paddles, bell, applause: %s wins the tanda." if in_lock
+			else "Paddles and applause: %s wins the tanda.") % tanda_winner
 	caption_requested.emit(text)
 
 

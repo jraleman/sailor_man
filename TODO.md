@@ -28,6 +28,12 @@ below that depends on one should start until it is answered.
 - [x] **Soundcheck entry** (§10) — the owner chose the game-owned pre-duel /
       next-turn **Soundcheck** button. No generic Settings action-row API or
       framework game-name branch is needed.
+- [x] **Arena access during development** (§5.2) — the owner chose all five
+      arenas as free practice in the shared level selector. Campaign gates
+      come later; normal Culebra practice keeps the synthetic skiff.
+- [x] **Self-echo structure** (§5.3) — the owner chose a separate best-of-three
+      challenge against a fresh unscored seed snapshot, not a one-answer drill.
+      Only completed pitch data drives a neutral tone; no live mic monitoring.
 
 ## Discrepancies found while planning
 
@@ -49,7 +55,8 @@ sweeps it. Start with a stub that passes them, and keep them green from here on.
 - [x] Folder `AGENTS.md` with game-specific agent notes.
 - [x] `sailor_man_options.gd` — constants-only: `GAME_ID`, Quiet Mode, longer
       windows, sensitivity, the spike's Record action and implemented Remo
-      bindings. Levels, captains, store and gallery stay undeclared.
+      bindings. Free practice arena data now lives in `canal_arenas.gd`;
+      captains, store and gallery stay undeclared.
 - [x] `game.gd` — minimal manifest (§7.4): id, title, tagline, `menu_order = 10`,
       `CONTROL_STYLE_CUSTOM_KEYS`, `uses_shell_round_rules = false`, tunables,
       bindings. Leave multiplayer off until Phase 8.
@@ -322,13 +329,21 @@ mobile permissions, authentic recordings and cultural review remain unverified.
 - [x] `world/lock_set.gd` — walls, miter gates, mulas on rails, water level
       driven by the chamber clock.
 - [x] `world/scenery.gd` — practice-lock tabletop, tropical banks, palms/hills.
-- [ ] Remaining scenery — lake islands, cut terraces, both bridges, Pacific skyline.
+- [x] Remaining scenery — lake islands/howlers/ships, cut terraces and cable
+      bridge, Pedro Miguel evening town, Pacific arch/skyline/causeway/bunting.
 - [x] `world/crowd.gd` — batched plain toy spectators; waves off under reduced motion.
 - [x] `world/voice_ribbon.gd` — admitted, source-relative pitch unrolls over
       water; silent gaps remain gaps and amplitude cannot widen it. Static
       quiebre diamonds use scorer evidence and disappear with intense effects off.
-- [ ] Arena modifiers (§5.3): lock clock, lake Repeat, Culebra echo
-      (600 ms, self-duel boss), Pacific five-judge panel.
+- [x] `canal_arenas.gd` and shared manifest levels — all five free practice
+      selections with real scene-derived icons; no voyage unlocks/progress.
+- [x] Clear practice modifiers (§5.3): rising/descending lock clock, free
+      once-only open-water Repeat, lake drift, and five actual Pacific judges
+      through scoring/HUD/totals/shell results. Listening deadlines are unchanged.
+- [x] Culebra self-echo practice — fresh unscored seed, fixed profile/Quiet Mode,
+      600 ms quiet returns, normal best-of-three, separate from skiff practice.
+      Completed pitch frames only; no live monitoring or recorded-voice playback.
+      Campaign boss placement remains Milestone 7.
 - [x] `audio/sailor_audio.gd` — original synthesized lock horn, water wash,
       applause, paddle clack and mula bell on game-owned SFX players.
 - [x] Quiet input states and once-only event feedback: no environmental audio
@@ -369,8 +384,9 @@ shell results: **87.0470/100** for the answer (Eco **0.621341**) and
 with a new 640x360 WebP poster. Reimport and both headless/native instructions-
 video checks passed. No microphone was opened. Existing shared-audio shutdown
 diagnostics and the Saves suite's deliberate damaged-backup parse errors remain.
-Other arenas/modifiers, production audio, physical-device/browser/mobile QA, authentic
-recordings and cultural review are still open.
+At that practice-lock checkpoint, other arenas/modifiers, production audio,
+physical-device/browser/mobile QA, authentic recordings and cultural review
+were still open; subsequent slices are recorded below.
 
 **Canal-audio follow-up:** all **eleven** game suites and all **15** framework
 suites passed with isolated profiles and Dummy audio; ten game suites support
@@ -389,6 +405,53 @@ Final own-audio checks have no shutdown warnings; existing shared UI-audio
 diagnostics and the Saves negative cases remain. No physical output, room-tail,
 device/permission, authentic-voice or cultural gate is thereby checked off.
 The walkthrough remains silent with its existing visual/caption flow.
+
+**Free-practice arena follow-up:** all **eleven** game suites and all **15**
+framework suites passed with isolated profiles and Dummy audio, without script
+errors. All four windowed runs passed. The canal suite covers all five arenas
+across **40 arena/size/UI combinations**, both singers and both chamber endpoints,
+with a maximum of **23 draw calls**. It checks actual paint/contours and
+pixel differences when individual landmarks are hidden, including the howlers,
+not only named nodes. Rendered dioramas and representative frames were inspected.
+
+The real shared setup selects each arena/icon without unlocking or opening a
+microphone. Scene regressions check both lock deadlines and water directions,
+level open water without ghost walls/tethers or filling/mula audio, free
+once-only Repeat, drift-attached contours and a full five-judge Remo win through
+shell results/replay. Retry retains the arena and clears duel-local results.
+`tools/capture_art.gd` generated all five 640x360 setup PNGs from the actual
+models; final import passed. The default Gatún tutorial's visuals/flow are
+preserved, so its silent clip is unchanged. No campaign, echo boss, production
+voices, physical-device/acoustic, browser/mobile or cultural gate is complete
+because of these automated results.
+
+**Self-echo follow-up:** the owner selected a separate seeded best-of-three
+challenge. **Challenge your echo** appears only in Culebra; **Skiff practice**
+returns before seeding. Real input captures an unscored seed through the
+existing guard/window, then the same scorer/judges evaluate its fixed frames,
+profile and Quiet Mode against later performances. Every echo/repeat waits
+600 ms; interruption restarts the full gap and call caption. The echo uses
+a softer neutral tone, not microphone audio. No tracks or mode choice persist.
+The seed cannot inflate turn counts, points, tandas or result maxima.
+
+All **eleven** game suites and all **15** framework suites passed with isolated
+profiles and Dummy audio, without script errors. All **four windowed runs**
+passed; native canal coverage remains **40 arena/size/UI combinations** and
+**23 maximum draw calls**. The expanded duel suite checks seed-ready/listening
+and echo review at all eight phone-to-ultrawide/normal-150% UI layouts.
+Rendered frames were inspected. A real buffered-PCM seed is beaten 2-0 by
+actual Remo input, with unchanged snapshot/profile, proper ECHO labels and
+shell results. A fresh Remo seed also reaches an echo win. Replay requires
+a new seed and clears old playback caches; ordinary skiff practice remains usable.
+
+Silent/interrupted/missing seeds, idle PCM discard, guarded admission,
+delayed free Repeat, pause/reannounced playback and fresh source-profile
+selection are covered. Existing shared UI-audio shutdown diagnostics and
+deliberate bad-profile/backup/capture negatives remain; the new duel runs
+have no shutdown-resource errors. No physical microphone/output, acoustic,
+browser/mobile, authentic-recording or cultural gate is thereby complete.
+Campaign encounters/progression remain unimplemented. Default Gatún's tutorial
+flow/visuals are unchanged, so its silent clip is not re-recorded.
 
 ## Milestone 6 — Voices (§11) — blocked on §15.2
 
@@ -414,7 +477,8 @@ The walkthrough remains silent with its existing visual/caption flow.
 - [ ] Achievements (§9.1) — all eleven keys, each reachable in Remo and Quiet Mode.
 - [ ] `intro.tscn` — five story cards (§1).
 - [ ] Instructions copy + glossary card; tutorial says the marks are a simplification.
-- [ ] `tools/capture_art.gd` — level stills to `assets/levels/`.
+- [x] `tools/capture_art.gd` — practice arena stills to `assets/levels/`;
+      regenerate when the later campaign changes those views.
 - [ ] `tests/voyage_test.gd`.
 - [ ] Cultural review pass over every *(verify)* item (§11.2).
 

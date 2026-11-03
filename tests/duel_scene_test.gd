@@ -7,6 +7,9 @@ const Duel = preload("res://games/sailor_man/duel/duel_state.gd")
 const Options = preload("res://games/sailor_man/sailor_man_options.gd")
 const Frame = preload("res://games/sailor_man/voice/voice_frame.gd")
 const CanalAudio = preload("res://games/sailor_man/audio/sailor_audio.gd")
+const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
+const Judges = preload("res://games/sailor_man/duel/judges.gd")
+const Rivals = preload("res://games/sailor_man/duel/rival_book.gd")
 
 ## A checked PCM queue substitutes only for the hardware, not the voice pipeline.
 class BufferedCapture extends Node:
@@ -40,7 +43,9 @@ func _initialize() -> void:
 
 func _run() -> void:
 	GameCatalog.select(Options.GAME_ID)
-	get_root().get_node("GameSession").call("configure_single_player")
+	var session := get_root().get_node("GameSession")
+	session.call("configure_single_player")
+	session.call("set_level", Arenas.GATUN)
 	var settings := get_root().get_node("Settings")
 	var original: Dictionary = settings.get("_values").duplicate(true)
 	var values := original.duplicate(true)
@@ -89,6 +94,9 @@ func _run() -> void:
 	_test_buffered_silence(game, spike)
 	await process_frame
 	_test_practice_return(game, spike, hud)
+	await _test_arenas(game, spike, hud)
+	await _test_self_echo(game, spike, hud)
+	await _test_echo_layouts(game, spike, hud)
 	await _test_layouts(game, spike, hud)
 	game.queue_free()
 	await process_frame
@@ -108,6 +116,349 @@ func _run() -> void:
 		for failure in _failures:
 			printerr(failure)
 	quit(0 if _failures.is_empty() else 1)
+
+
+func _test_arenas(game: Node, spike: Control, hud: Control) -> void:
+	var session := get_root().get_node("GameSession")
+	var setup := (load("res://scenes/menus/mode_select.tscn") as PackedScene).instantiate()
+	get_root().add_child(setup)
+	await process_frame
+	await process_frame
+	var picker := setup.get("_level_choice") as OptionButton
+	_expect(picker != null and picker.item_count == Arenas.ENTRIES.size(),
+		"The real shared setup must offer all five practice arenas.")
+	if picker == null:
+		setup.queue_free()
+		return
+	for index in picker.item_count:
+		picker.select(index)
+		picker.item_selected.emit(index)
+		var selected: Dictionary = session.call("selected_level")
+		_expect(not picker.is_item_disabled(index) and picker.get_item_icon(index) != null
+			and str(selected["id"]) == str(Arenas.ENTRIES[index]["id"]),
+			"Every free arena must be selectable through setup, with its rendered icon.")
+	setup.queue_free()
+	await process_frame
+	await process_frame
+	var canal: Control = hud.get("lock")
+	for arena: Dictionary in Arenas.ENTRIES:
+		session.call("set_level", str(arena["id"]))
+		game.call("_return_to_duel")
+		game.call("_on_source_requested", false)
+		var duel: Duel = game.get("_duel")
+		var clocked := bool(arena["clock"])
+		_expect(spike.get("_capture") == null
+			and str(canal.get("_arena")["id"]) == str(arena["id"])
+			and duel.uses_chamber_clock == clocked and duel.judge_count == int(arena["judges"])
+			and (hud.get_node("%CanalCaption") as Label).text == str(arena["caption"]),
+			"Shared selection must configure the real view, rule panel and caption without a mic.")
+		_expect((hud.get_node("%EchoChallenge") as Button).visible
+			== (str(arena["id"]) == Arenas.CULEBRA),
+			"Only Culebra's ready card may offer the optional self-echo challenge.")
+		game.call("_on_duel_action")
+		_tick(game, 3.73)
+		var audio := game.get("_canal_audio") as Node
+		var water := audio.get_node("FillingWater") as AudioStreamPlayer
+		_expect(duel.phase == Duel.Phase.REVIEW and water.playing == clocked
+			and (audio.get_node("PaddleClack") as AudioStreamPlayer).playing,
+			"Open water must keep verdict feedback without a false filling-water loop.")
+		var chamber: Node3D = canal.get("chamber")
+		var surface: MeshInstance3D = chamber.get("water")
+		var initial_height := surface.position.y
+		var before := duel.chamber_left
+		_tick(game, 120.0 if clocked else 900.0)
+		if clocked:
+			var direction := -1.0 if bool(arena["descending"]) else 1.0
+			_expect((surface.position.y - initial_height) * direction > 0.4,
+				"Real lock time must raise Gatun and lower Pedro Miguel, not reverse the rules.")
+			_tick(game, 121.0)
+			_expect(duel.reason == "chamber_timeout" and duel.winner == Duel.Singer.RIVAL,
+				"Both practice locks must retain their authoritative chamber deadline.")
+		else:
+			_expect(duel.phase == Duel.Phase.REVIEW and duel.chamber_left == before
+				and is_equal_approx(surface.position.y, initial_height)
+				and not chamber.has_node("ChamberAndMulas") and not chamber.has_node("TowLines")
+				and (hud.get("_clock") as Label).text.contains("no chamber deadline"),
+				"Open water must be untimed, level, visibly labelled and free of ghost lock walls.")
+			game.call("_on_duel_action")
+			game.call("_on_repeat")
+			_expect(_canal_silent(game), "Even a free Repeat must silence canal effects.")
+			_tick(game, 900.0)
+			_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.records.size() == 1
+				and duel.chamber_left == before and duel.repeat_used
+				and (hud.get("repeat") as Button).disabled,
+				"Open-water Repeat must be free, once-only playback, never another score.")
+			if str(arena["id"]) == Arenas.LAKE:
+				_test_lake_drift(game, canal, duel)
+			_open_player(game)
+			_draw_call(game)
+			var paddles: Array = duel.records[-1]["judgement"]["paddles"]
+			var labels: Array = hud.get("_judges")
+			var judged: Dictionary = Judges.evaluate(
+				duel.records[-1]["result"], int(arena["judges"]))
+			var totals: Dictionary = game.call("_round_totals")
+			_expect(duel.wins[0] == 1 and paddles.size() == int(arena["judges"])
+				and labels.size() == paddles.size() and duel.points[0] == int(judged["sum"])
+				and int(totals["attempts"]) == paddles.size() * 10
+				and not (audio.get_node("MulaBell") as AudioStreamPlayer).playing
+				and (audio.get_node("Applause") as AudioStreamPlayer).playing,
+				"Real Remo must score/display every Pacific judge, correct maxima and no lock bell.")
+			for index in labels.size():
+				_expect((labels[index] as Label).is_visible_in_tree()
+					and (labels[index] as Label).text.contains("P1 %s" % paddles[index]["points"]),
+					"Every actual judge paddle must reach a labelled HUD row.")
+		game.call("_return_to_duel")
+		if str(arena["id"]) == Arenas.PACIFIC:
+			_test_remo_win(game, spike, hud)
+		_expect(str(canal.get("_arena")["id"]) == str(arena["id"])
+			and duel.judge_count == int(arena["judges"]) and duel.records.is_empty(),
+			"Replay, including five-judge shell results, must keep the arena but clear results.")
+	session.call("set_level", Arenas.GATUN)
+	game.call("_return_to_duel")
+
+
+func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
+	var session := get_root().get_node("GameSession")
+	session.call("set_level", Arenas.CULEBRA)
+	game.call("_return_to_duel")
+	game.call("_on_source_requested", false)
+	var echo := hud.get_node("%EchoChallenge") as Button
+	echo.pressed.emit()
+	var duel: Duel = game.get("_duel")
+	_expect(duel.echo_challenge and duel.preparing_seed and duel.records.is_empty()
+		and spike.get("_capture") == null and (game.get("_rival") as Dictionary).is_empty()
+		and (hud.get("_turn") as Label).text.contains("UNSCORED"),
+		"Choosing self-echo must ask for an unscored seed without opening a microphone.")
+	_open_player(game)
+	_tick(game, 0.2)
+	spike.call("finish_duel_turn")
+	_expect(duel.preparing_seed and duel.phase == Duel.Phase.PLAYER_READY
+		and duel.echo_rival.is_empty() and int(game.get("_calls")) == 0
+		and str(game.get("_message")).contains("voiced seed"),
+		"A silent seed must fail visibly and remain retryable without a score or opponent.")
+	_open_player(game)
+	_send_key(KEY_SPACE)
+	_tick(game, 0.2)
+	game.call("open_pause_menu")
+	_expect(paused and duel.preparing_seed and duel.echo_rival.is_empty()
+		and (spike.get("_track") as Array).is_empty() and duel.records.is_empty(),
+		"Pausing a partial seed must discard it, not silently establish an opponent.")
+	(game.get("_pause_menu") as Node).call("resume")
+	_send_key(KEY_SPACE, false)
+	game.call("_on_source_requested", true)
+	_checked_capture(spike)
+	_open_player(game)
+	_tick(game, 4.0)
+	_expect(duel.preparing_seed and duel.echo_rival.is_empty()
+		and spike.get("_capture") == null and str(game.get("_message")).contains("No microphone"),
+		"Missing seed PCM must remain a capture error, never a zero-scoring seed.")
+	var capture := _checked_capture(spike)
+	_open_player(game)
+	capture.pending = _pcm(0.7)
+	_tick(game, 0.7)
+	(spike.get_node("%RecordCall") as Button).pressed.emit()
+	var seed: Array[Dictionary] = (spike.get("_track") as Array[Dictionary]).duplicate(true)
+	var profile: Dictionary = (spike.get("_profile") as Dictionary).duplicate(true)
+	var snapshot: Dictionary = (game.get("_rival") as Dictionary).duplicate(true)
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT and not duel.preparing_seed
+		and duel.echo_rival["frames"] == seed and snapshot["profile"] == profile
+		and not bool(profile["falsetto_calibrated"]) and duel.records.is_empty()
+		and int(game.get("_calls")) == 0 and not bool(spike.get("_duel_turn_open"))
+		and not (game.get("_rival_tone") as AudioStreamPlayer).playing
+		and _canal_silent(game),
+		"Real buffered PCM must create only a frozen source-relative seed and a quiet gap.")
+	capture.pending = _pcm(0.1)
+	_tick(game, 0.3)
+	_expect(capture.pending.is_empty() and spike.get("_track") == seed
+		and game.get("_rival") == snapshot and duel.phase == Duel.Phase.ECHO_WAIT,
+		"Idle mic buffers must be discarded, not monitored or appended to the fixed echo.")
+	game.call("open_pause_menu")
+	_expect(capture.stopped and spike.get("_capture") == null,
+		"Pausing the echo gap must release microphone capture.")
+	(game.get("_pause_menu") as Node).call("resume")
+	_tick(game, 0.59)
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT
+		and not (game.get("_rival_tone") as AudioStreamPlayer).playing,
+		"Resuming must retain all 600 ms of silence before any echo playback.")
+	_tick(game, 0.01)
+	_tick(game, 0.2)
+	var tone := game.get("_rival_tone") as AudioStreamPlayer
+	var frame: Dictionary = seed[int(game.get("_rival_index")) - 1]
+	_expect(duel.phase == Duel.Phase.RIVAL and int(game.get("_rival_index")) > 0
+		and not bool(spike.get("_duel_turn_open")) and game.get("_rival") == snapshot
+		and tone.playing == bool(frame["voiced"])
+		and tone.volume_db < (spike.get("_remo_tone") as AudioStreamPlayer).volume_db,
+		"Only completed snapshot frames may play; rival playback must never reopen input.")
+	game.call("open_pause_menu")
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT
+		and not (game.get("_rival_tone") as AudioStreamPlayer).playing,
+		"Interrupting a returning echo must stop its tone and restart the quiet delay.")
+	(game.get("_pause_menu") as Node).call("resume")
+	var captions_before := _captions.size()
+	_play_echo(game)
+	_expect(duel.phase == Duel.Phase.REVIEW and duel.records.size() == 1
+		and int(duel.records[0]["judgement"]["sum"])
+			== int(Judges.evaluate(Rivals.score(snapshot))["sum"])
+		and duel.call_track == seed and game.get("_rival") == snapshot
+		and _captions.slice(captions_before).has(str(snapshot["caption"])),
+		"The echo's actual first call must be scored from the frozen seed, not a skiff take.")
+	game.call("_on_duel_action")
+	game.call("_on_repeat")
+	_tick(game, 0.59)
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT and duel.repeat_used
+		and duel.records.size() == 1,
+		"Even a free echo Repeat must wait 600 ms and cannot score.")
+	_tick(game, 0.01)
+	_tick(game, float(seed.size()) * Frame.STEP_SECONDS + 0.01)
+	_expect(duel.phase == Duel.Phase.PLAYER_READY and duel.records.size() == 1,
+		"Echo Repeat must return to the same guarded answer.")
+	game.call("_on_source_requested", false)
+	_open_player(game)
+	_draw_call(game)
+	game.call("_on_duel_action")
+	_open_player(game)
+	_draw_call(game)
+	game.call("_on_duel_action")
+	_play_echo(game)
+	var canal: Control = hud.get("lock")
+	var boats: Array = canal.get("boats")
+	var stats: Dictionary = game.call("_player_stats", 0)
+	var totals: Dictionary = game.call("_round_totals")
+	_expect(duel.phase == Duel.Phase.COMPLETE and duel.wins[0] == 2
+		and duel.records.size() == 4 and int(game.get("_calls")) == 2
+		and int(totals["attempts"]) == 60 and str(stats["source"]) == "Remo"
+		and duel.echo_rival["frames"] == seed and game.get("_rival") == snapshot,
+		"A real Remo win must beat the unchanged mic seed; the seed cannot inflate results.")
+	_expect((boats[1].get("plaque") as Label3D).text == "ECHO"
+		and (hud.get("_clock") as Label).text.contains("ECHO")
+		and (hud.get("_judges")[0] as Label).text.contains("/ ECHO")
+		and str(game.call("_round_highlight_summary")).contains("ECHO"),
+		"The boat, panel and result evidence must identify the echo, not a fictitious CPU crew.")
+	game.call("_on_duel_action")
+	_expect((game.get_node("%RoundOver") as Control).visible and not hud.visible
+		and (game.get_node("%ResultLabel") as Label).text.contains("P1 WINS"),
+		"Winning the self-echo challenge must reach the actual shell results.")
+	game.call("_on_play_again_pressed")
+	_expect(duel.echo_challenge and duel.preparing_seed and duel.echo_rival.is_empty()
+		and (game.get("_rival") as Dictionary).is_empty() and duel.records.is_empty()
+		and (game.get("_rival_frames") as Array).is_empty() and spike.get("_capture") == null,
+		"Echo replay must keep the challenge but discard every previous seed/playback track.")
+	game.call("_on_source_requested", false)
+	_open_player(game)
+	_draw_seed(game)
+	_expect(bool(game.get("_rival")["profile"]["falsetto_calibrated"])
+		and game.get("_rival")["frames"] != seed,
+		"A new Remo seed must replace the old mic snapshot, not borrow its profile or samples.")
+	_play_echo(game)
+	game.call("_on_duel_action")
+	for _tanda in 2:
+		_open_player(game)
+		_tick(game, 0.2)
+		spike.call("finish_duel_turn")
+		game.call("_on_duel_action")
+		if duel.phase == Duel.Phase.ECHO_WAIT:
+			_play_echo(game)
+	_expect(duel.phase == Duel.Phase.COMPLETE and duel.winner == Duel.Singer.RIVAL,
+		"Actual silent duel turns must remain valid losses, unlike an invalid silent seed.")
+	game.call("_on_duel_action")
+	_expect((game.get_node("%ResultLabel") as Label).text.contains("ECHO WINS"),
+		"An echo win must not be mislabeled as the practice skiff in shell results.")
+	game.call("_on_play_again_pressed")
+	echo.pressed.emit()
+	_expect(not duel.echo_challenge and duel.phase == Duel.Phase.READY
+		and str(game.get("_rival")["id"]) == "synthetic_skiff"
+		and (boats[1].get("plaque") as Label3D).text == "CPU",
+		"Skiff practice must remain a separate usable choice without the old seed.")
+	session.call("set_level", Arenas.GATUN)
+	game.call("_return_to_duel")
+	await process_frame
+
+
+func _test_echo_layouts(game: Node, spike: Control, hud: Control) -> void:
+	var session := get_root().get_node("GameSession")
+	var settings := get_root().get_node("Settings")
+	var values: Dictionary = settings.get("_values")
+	session.call("set_level", Arenas.CULEBRA)
+	for size in [Vector2i(320, 568), Vector2i(568, 320), Vector2i(1280, 720),
+			Vector2i(2560, 1080)]:
+		for scale: float in [1.0, 1.5]:
+			game.call("_return_to_duel")
+			values["ui/scale"] = scale
+			get_root().min_size = Vector2i.ZERO
+			get_root().size = size
+			settings.call("_update_content_scale")
+			settings.emit_signal("changed", "ui/scale", scale)
+			(hud.get_node("%EchoChallenge") as Button).pressed.emit()
+			for _frame in 6:
+				await process_frame
+			var primary := hud.get("primary") as Button
+			(hud.get("_scroll") as ScrollContainer).ensure_control_visible(primary)
+			for _frame in 3:
+				await process_frame
+			var transform := get_root().get_final_transform()
+			var window := Rect2(Vector2.ZERO, Vector2(size))
+			_expect(primary.is_visible_in_tree()
+				and window.encloses(transform * primary.get_global_rect()),
+				"The unscored-seed action must remain reachable at %s / %.1f UI." % [size, scale])
+			if DisplayServer.get_name() != "headless":
+				_capture("echo-ready-%dx%d-ui%.1f.png" % [size.x, size.y, scale])
+			_open_player(game)
+			for _frame in 6:
+				await process_frame
+			for control in [spike.get_node("%VoiceRibbon"), spike.get_node("%RemoBreak"),
+					hud.get_node("%PauseDuel")]:
+				_expect(window.encloses(transform * (control as Control).get_global_rect()),
+					"Seed input must remain in bounds at %s / %.1f UI: %s." % [
+						size, scale, control.name])
+			_expect((hud.get("_turn") as Label).text.contains("SEED"),
+				"Listening must visibly distinguish the unscored seed from a tanda.")
+			_draw_call(game)
+			_play_echo(game)
+			for _frame in 3:
+				await process_frame
+			if DisplayServer.get_name() != "headless":
+				_assert_arena(hud, true)
+				_capture("echo-review-%dx%d-ui%.1f.png" % [size.x, size.y, scale])
+	session.call("set_level", Arenas.GATUN)
+	game.call("_return_to_duel")
+
+
+func _draw_seed(game: Node) -> void:
+	_send_key(KEY_SPACE)
+	_tick(game, 0.4)
+	_send_key(KEY_K)
+	_tick(game, 0.12)
+	_send_key(KEY_K, false)
+	_send_key(KEY_SPACE, false)
+
+
+func _play_echo(game: Node) -> void:
+	var duel: Duel = game.get("_duel")
+	_expect(duel.phase == Duel.Phase.ECHO_WAIT,
+		"Every echo must begin with its quiet delay, including retries and repeats.")
+	_tick(game, Duel.ECHO_DELAY)
+	var frames: Array = game.get("_rival")["frames"]
+	_tick(game, float(frames.size()) * Frame.STEP_SECONDS + 0.01)
+
+
+func _test_lake_drift(game: Node, canal: Control, duel: Duel) -> void:
+	var ribbon: Node3D = canal.get("ribbon")
+	var boats: Array = canal.get("boats")
+	var mouth: Node3D = boats[1].get("mouth")
+	var points: PackedVector3Array = ribbon.get("points")
+	var offset := ribbon.to_global(points[0]) - mouth.global_position
+	var track := duel.call_track.duplicate(true)
+	var reduced := bool(game.get("_reduced_motion_enabled"))
+	game.call("_set_reduced_motion_enabled", false)
+	canal.call("_process", 5.0)
+	_expect((ribbon.to_global(points[0]) - mouth.global_position).distance_to(offset) < 0.02
+		and duel.call_track == track,
+		"A drifting lake rival must carry its contour with it, without moving scored samples.")
+	game.call("_set_reduced_motion_enabled", true)
+	_expect(not canal.is_processing() and is_zero_approx((boats[1] as Node3D).position.z)
+		and (ribbon.to_global(points[0]) - mouth.global_position).distance_to(offset) < 0.02,
+		"Reduced motion must immediately park lake drift while preserving the attached contour.")
+	game.call("_set_reduced_motion_enabled", reduced)
 
 
 func _test_audio_policy(game: Node, spike: Control) -> void:

@@ -1,9 +1,10 @@
 # Sailor Man
 
 Read the root `AGENTS.md`, then `DESIGN.md` and `TODO.md`. The design describes
-the target game; the current implementation is a toy-canal duel against one
-synthetic practice skiff, plus the microphone/Remo scorer workbench. Do not
-advertise a finished voyage or recorded salomero opponents.
+the target game; the current implementation has five free toy-canal practice
+arenas against one synthetic skiff, an optional Culebra self-echo challenge and
+the microphone/Remo scorer workbench. Do not advertise a finished voyage or
+recorded salomero opponents.
 
 ## Current scope
 
@@ -14,7 +15,12 @@ advertise a finished voyage or recorded salomero opponents.
   Soundcheck and named calibration profiles are implemented. Campaign,
   production rival crews, hot seat, store and gallery are not implemented.
 - Real canal place names are owner-approved without authority branding.
-  The toy Gatún practice lock is implemented, not the lake/cut/bridges/Pacific.
+  Gatún, the lake, Culebra, Pedro Miguel and Pacific have original toy scenery.
+  The owner chose freely selectable practice through the existing level selector,
+  not campaign gates. Ordinary practice still faces the synthetic skiff.
+  The owner chose a separate Culebra self-echo challenge: a fresh unscored
+  seed, then best-of-three against that fixed snapshot. It is not a voyage
+  boss encounter or live microphone monitoring.
   Plain crew/spectators imply no traditional dress or reviewed cultural assets.
 - No performer recordings or cultural partner are available yet. Synthetic
   fixtures prove algorithm behavior, not authentic saloma quality. The real
@@ -54,6 +60,23 @@ advertise a finished voyage or recorded salomero opponents.
   Equal winning margins give the decider call to the loser of tanda two.
   `judges.gd` reweights the scorer's marks; `rival_book.gd` uses that same
   scorer. The synthetic rival must remain beatable through actual Remo input.
+- Self-echo reuses the guarded player window for its seed; only a completed
+  voiced track can seed it. Seed capture awards no points/records/tandas.
+  `rival_book.gd` deep-copies frames, the actual source profile and Quiet Mode;
+  later input/profile/settings changes must not rewrite them. The original
+  scorer, lead/tie/decider rules apply without an echo handicap.
+  `duel_state.gd` owns the 600 ms quiet gap before every echo/repeat.
+  Paused playback restarts the full gap and reannounces the call caption.
+  Only the completed snapshot drives its softer neutral tone, never live PCM.
+  Echo replay drops all seed/playback tracks and requires a new seed.
+  Returning to ordinary practice drops echo mode; neither choice is saved.
+- `canal_arenas.gd` is the autoload-free source for five stable arena IDs,
+  captions and rule data. Its `levels()` supplies the shared manifest selector;
+  gameplay reads `GameSession.selected_level()`. Do not add a second selector
+  or put an arena ID in Settings. Selection survives replay, not app restart.
+  Only locks consume the chamber clock; open-water Repeat is once-only and free.
+  Every arena retains the listening deadline/guard. Pacific uses five actual
+  judges throughout scoring, HUD, totals and results, not just extra labels.
 - `voice_calibration.gd` is the unscored Room/Speak/Low/High/Call model and
   scalar-only profile codec. Only complete validated measurements save;
   skipped/unobserved high breaks retain `falsetto_calibrated = false`.
@@ -74,6 +97,10 @@ advertise a finished voyage or recorded salomero opponents.
   scalar profiles/selection belong in `user://sailor_man_voice.cfg`; it is not
   progress or a `save_files` entry. Refuse damaged/newer files without rewriting
   them. Source/reminder options use the shared Settings persistence.
+- The game-owned **Challenge your echo** entry exists only on Culebra's ready
+  card. **Skiff practice** returns before seed capture; the shell's replay
+  preserves echo mode but not the seed. The seed remains excluded from duel
+  results, though completed voiced mic seeds count toward the rest reminder.
 - Soundcheck mounts capture beside the transient overlay, not beneath it.
   Adoption transfers the reference, **not the node's parent**: a tree exit
   stops `MicCapture` and its `AudioStreamPlayer`. Release the owned bus on failure,
@@ -95,7 +122,8 @@ advertise a finished voyage or recorded salomero opponents.
   Stop it on finish, cancellation, pause, focus loss and source changes.
 - `audio/sailor_audio.gd` owns original non-vocal SFX players, not shared-pool
   voices or delayed callbacks. Only Remo review/ready states allow decorative
-  water and judge feedback. Reference/repeat, guard, listening, Soundcheck,
+  judge feedback; filling water and mula bells belong to locks only.
+  Reference/repeat, guard, listening, Soundcheck,
   Practice and pause stay quiet; selecting Microphone already silences them
   before Enable. Final feedback waits for capture to stop. Stop on focus loss,
   source changes, results/replay and exit; do not infer a new score in audio.
@@ -127,7 +155,10 @@ advertise a finished voyage or recorded salomero opponents.
   two-shot. `boat_rig.gd`, `lock_set.gd`, `scenery.gd` and `crowd.gd` are batched,
   game-owned geometry; the local mesh builder has no cross-game runtime imports.
   Keep both complete boats/labels framed at both water endpoints. Reduced motion
-  immediately parks framing, bobbing and waves, not essential water state.
+  immediately parks framing, lake drift, bobbing and waves, not essential water state.
+  Gatún rises and Pedro Miguel descends; open-water surfaces stay level and have
+  no lock walls, mulas or tow lines. Contours translate with their drifting source
+  without mutating scored tracks. Primary landmarks participate in camera bounds.
   Hidden layouts stop rendering/processing; ordinary shell pause stops decoration.
 - `world/voice_ribbon.gd` draws only admitted frames using their source profile.
   Never mutate tracks, connect silent spans, infer new breaks or reward amplitude.
@@ -194,9 +225,10 @@ usable window size and UI scale before coordinate-based input checks, even
 headlessly, and resume the real pause menu rather than only freeing it.
 Native duel checks include full boat-mesh framing, an isolated 3D world,
 a nonempty render below 60 draw calls and all eight size/UI-scale combinations.
-The canal suite covers both singer framings/water endpoints, actual paint/contour
-pixels, hidden-view shutdown, pause and reduced-motion/effects switches. Its
-measured maximum is 21 draws. Headless checks cover profile-relative contours,
+The canal suite covers all five arenas, both singer framings/water endpoints,
+actual paint/contour and individual landmark pixels, hidden-view shutdown,
+pause and reduced-motion/effects switches across 40 arena/size/UI combinations.
+Its measured maximum is 23 draws. Headless checks cover profile-relative contours,
 amplitude invariance, silent gaps and essential water updates. MultiMesh endpoint
 checks run natively: the dummy renderer does not retain instance transforms.
 Soundcheck covers Room/High/Call/Complete, including the live ribbon staying
@@ -207,6 +239,14 @@ The audio suite also allows the mixer to consume starts before interrupting
 real playback. It checks PCM headroom/DC/seams and admitted events; duel checks
 assert actual visible, in-bounds muted-SFX captions at every native layout,
 not just caption requests. Digital stop is not measured acoustic-tail safety.
+The duel suite uses the real shared arena picker and checks both water directions,
+free repeats, drift-attached contours and five-judge shell results/replay.
+It also runs the optional echo entry, silent/missing/interrupted seed recovery,
+actual buffered-PCM seeding, frozen source profiles, quiet delays/repeats,
+pause/caption recovery and actual Remo win/echo loss through shell results.
+All eight native layouts cover seed-ready/listening and echo review.
+`tools/capture_art.gd` regenerates the setup's `assets/levels/*.png` from the
+real arena meshes with a graphics window; reimport after running it.
 These do not verify physical devices, OS permissions, acoustic output or real
 singers. Use `--audio-driver Dummy` for automated runs. Run all 15 framework
 suites with `--game=all` after integration changes. Keep `README.md` and
