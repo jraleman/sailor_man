@@ -61,6 +61,11 @@ func clear() -> void:
 	position = Vector3.ZERO
 
 
+## A scorecard keeps only frozen geometry, never source frames or calibration.
+func frozen_mesh() -> Mesh:
+	return _mesh.mesh.duplicate(true) if _mesh.mesh != null else null
+
+
 func _rebuild() -> void:
 	points.clear()
 	var builder := Builder.new()

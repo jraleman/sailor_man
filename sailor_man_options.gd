@@ -1,7 +1,7 @@
 extends RefCounted
 
-## Only implemented workbench controls are advertised. Rivals, campaign,
-## captains and cosmetics acquire their declarations with their milestones.
+## Constants-only input options and free original-model exhibits.
+## Production rivals, campaign, captains and cosmetics remain undeclared.
 
 const GAME_ID := "sailor_man"
 const QUIET_MODE_KEY := "game/sailor_man_quiet_mode"
@@ -131,5 +131,88 @@ const CONTROL_BINDINGS: Array[Dictionary] = [
 		"title": "Remate / Finish",
 		"description": "Release the virtual voice and score the Remo call.",
 		"heading": "Remo controls",
+	},
+]
+
+const GALLERY_EXHIBITS: Array[Dictionary] = [
+	{
+		"id": "launch", "title": "P1 practice launch", "badge": "P1",
+		"heading": "The launches", "framing_yaw": 2.65, "framing_pitch": 0.35,
+		"description": "The original blue launch used by the first singer.",
+		"facts": ["Plain toy crew, not a named or recorded captain.",
+			"The same hull, cabin, fenders and crew mesh used in a duel."],
+	},
+	{
+		"id": "skiff", "title": "Synthetic practice skiff", "badge": "CPU",
+		"heading": "The launches", "framing_yaw": -2.65, "framing_pitch": 0.35,
+		"description": "The red launch that carries the explicitly synthetic practice rival.",
+		"facts": ["No salomero recording or production rival crew.",
+			"The exhibits play no voices or duel scoring cues."],
+	},
+	{
+		"id": "hot_seat", "title": "Two-human launches", "badge": "DUO",
+		"heading": "The launches", "framing_yaw": 3.14, "framing_pitch": 0.40,
+		"description": "The same blue and red rigs with the real P1 and P2 seat labels.",
+		"facts": ["Shared controls, separate singers in the playable hot-seat duel.",
+			"This exhibit reads no voice profile or performance."],
+	},
+	{
+		"id": "mula", "title": "Mula on rails", "badge": "RAIL",
+		"heading": "Lock and jungle details",
+		"framing_yaw": 2.60, "framing_pitch": 0.35,
+		"description": "The original yellow rail-side toy used beside both practice locks.",
+		"facts": ["The same wheel, cabin and chassis builder as the chamber.",
+			"A compressed toy interpretation, not an engineering model."],
+	},
+	{
+		"id": "gate", "title": "Practice lock gate", "badge": "GATE",
+		"heading": "Lock and jungle details",
+		"framing_yaw": 3.45, "framing_pitch": 0.30,
+		"description": "Two V-shaped leaves built from the actual practice gate geometry.",
+		"facts": ["The same beams and braces used in the lock.",
+			"No chamber clock or water-level simulation runs in the gallery."],
+	},
+	{
+		"id": "howler", "title": "Canopy howler", "badge": "MONKEY",
+		"heading": "Lock and jungle details",
+		"framing_yaw": 0.45, "framing_pitch": 0.20,
+		"description": "One of the original clay-like monkeys from the lake's canopy.",
+		"facts": ["The same body, arms and curled tail builder used on the islands.",
+			"An unscored scenery model, not the planned campaign interlude."],
+	},
+	{
+		"id": "gatun", "title": "Gat\u00fan practice diorama", "badge": "GATUN",
+		"heading": "Five free practice arenas",
+		"description": "The current toy chamber, tropical banks, mulas and two launches.",
+		"facts": ["Parked at the rising lock's initial water height.",
+			"Free prototype access; no voyage unlock or authority branding."],
+	},
+	{
+		"id": "lake", "title": "Lago Gat\u00fan diorama", "badge": "LAKE",
+		"heading": "Five free practice arenas",
+		"description": "The current lake islands, canopy howlers and distant ships.",
+		"facts": ["The actual open-water practice meshes, with drift parked.",
+			"Compressed toy scenery, not a factual geographic reconstruction."],
+	},
+	{
+		"id": "culebra", "title": "Corte Culebra diorama", "badge": "CUT",
+		"heading": "Five free practice arenas",
+		"description": "The current red-earth terraces and cable-stayed toy bridge.",
+		"facts": ["The same scenery used by skiff and self-echo practice.",
+			"No seed, pitch track or live microphone data is used here."],
+	},
+	{
+		"id": "pedro_miguel", "title": "Pedro Miguel diorama", "badge": "LOCK",
+		"heading": "Five free practice arenas",
+		"description": "The current descending-lock chamber with its small toy town.",
+		"facts": ["Parked at the descending lock's initial water height.",
+			"The plain spectators imply no culturally reviewed dress or characters."],
+	},
+	{
+		"id": "pacific", "title": "Miraflores & Pacific diorama", "badge": "SEA",
+		"heading": "Five free practice arenas",
+		"description": "The current arched bridge, skyline, causeway and festival bunting.",
+		"facts": ["The actual five-judge practice arena's original scenery.",
+			"No campaign completion, recorded Maestra or cultural review is implied."],
 	},
 ]

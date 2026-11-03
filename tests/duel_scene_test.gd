@@ -12,6 +12,7 @@ const Judges = preload("res://games/sailor_man/duel/judges.gd")
 const Rivals = preload("res://games/sailor_man/duel/rival_book.gd")
 const Calibration = preload("res://games/sailor_man/voice/voice_calibration.gd")
 const Identity = preload("res://scripts/player_identity.gd")
+const Ribbon = preload("res://games/sailor_man/world/voice_ribbon.gd")
 const LOW_PROFILE := "Low voice"
 const HIGH_PROFILE := "High voice - comfortable profile for P2"
 
@@ -97,6 +98,7 @@ func _run() -> void:
 	_test_canal_state(game, hud)
 	_test_audio_policy(game, spike)
 	_test_remo_win(game, spike, hud)
+	_test_share_selection(game)
 	await process_frame
 	_test_pause_and_guard(game, spike)
 	await process_frame
@@ -285,6 +287,13 @@ func _test_hot_seat_win(game: Node, spike: Control, hud: Control, winner: int) -
 	_expect(int(totals["attempts"]) == duel.judge_count * 40
 		and int(totals["hits"]) == duel.points[0] + duel.points[1],
 		"Combined statistics must count both humans without doubling either player's maximum.")
+	var payload := _test_share_payload(game)
+	_expect(payload["score"] == "%d - %d" % [duel.points[0], duel.points[1]]
+		and payload["sailor_mode"] == "hot_seat" and payload["sailor_art"].size() == 2
+		and int(payload["sailor_stats"]["judge_count"]) == duel.judge_count
+		and str(payload["accuracy_caption"]).begins_with("P1 / P2")
+		and str(payload["result"]).contains("P%d WINS" % (winner + 1)),
+		"Human sharing must retain both real scores, both best turns and every Pacific judge.")
 	game.call("_on_duel_action")
 	var panels: Array = game.get("_player_ui")
 	_expect((game.get_node("%ResultLabel") as Label).text.contains("P%d WINS" % (winner + 1))
@@ -318,6 +327,9 @@ func _test_hot_seat_profiles(
 	_expect(duel.records.size() == 1 and capture.stopped and spike.get("_capture") == null
 		and is_equal_approx(float(profile["chest_hz"]), 160.0),
 		"P1's real PCM must use P1's calibration and disconnect before the human handoff.")
+	_test_share_mesh(game, 0)
+	var p1_mesh: Mesh = game.get("_best_turn_art")[0]["mesh"]
+	var p1_vertices: PackedVector3Array = p1_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
 	game.call("_on_duel_action")
 	_expect((spike.get("_human_profile") as Dictionary).is_empty()
 		and str(game.get("_profile_name")).is_empty(),
@@ -372,6 +384,10 @@ func _test_hot_seat_profiles(
 		and FileAccess.get_file_as_bytes(path) == stored
 		and int(settings.call("tunable_choice", Options.INPUT_SOURCE_KEY)) == preference,
 		"Voice-rest counts and card choices must stay per seat, without saving tracks or defaults.")
+	_test_share_mesh(game, 1)
+	_test_share_payload(game)
+	_expect(p1_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] == p1_vertices,
+		"P2's capture/profile must never rewrite P1's frozen share contour.")
 	game.call("_on_duel_action")
 	(hud.get_node("%UseRemo") as Button).pressed.emit()
 	_open_player(game)
@@ -724,6 +740,9 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 		and not (game.get("_rival_tone") as AudioStreamPlayer).playing
 		and _canal_silent(game),
 		"Real buffered PCM must create only a frozen source-relative seed and a quiet gap.")
+	var seed_payload := _test_share_payload(game)
+	_expect((seed_payload["sailor_art"][0] as Dictionary).is_empty(),
+		"An unscored seed must not appear as the human's best scored share turn.")
 	capture.pending = _pcm(0.1)
 	_tick(game, 0.3)
 	_expect(capture.pending.is_empty() and spike.get("_track") == seed
@@ -759,6 +778,8 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 		and duel.call_track == seed and game.get("_rival") == snapshot
 		and _captions.slice(captions_before).has(str(snapshot["caption"])),
 		"The echo's actual first call must be scored from the frozen seed, not a skiff take.")
+	_expect((game.call("_share_payload")["sailor_art"][0] as Dictionary).is_empty(),
+		"Scored echo playback still cannot populate the human's best-turn artwork.")
 	game.call("_on_duel_action")
 	game.call("_on_repeat")
 	_tick(game, 0.59)
@@ -817,6 +838,11 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 			_play_echo(game)
 	_expect(duel.phase == Duel.Phase.COMPLETE and duel.winner == Duel.Singer.RIVAL,
 		"Actual silent duel turns must remain valid losses, unlike an invalid silent seed.")
+	var silent_payload := _test_share_payload(game)
+	_expect(silent_payload["sailor_art"][0]["mesh"] == null
+		and is_zero_approx(float(silent_payload["sailor_art"][0]["total"]))
+		and str(silent_payload["result"]) == "FIXED ECHO WINS",
+		"A silent competitive loss must share zero human quality with no fabricated contour.")
 	game.call("_on_duel_action")
 	_expect((game.get_node("%ResultLabel") as Label).text.contains("ECHO WINS"),
 		"An echo win must not be mislabeled as the practice skiff in shell results.")
@@ -1060,6 +1086,115 @@ func _test_remo_win(game: Node, spike: Control, hud: Control) -> void:
 		"Replay must also clear the world contour and park its previous singer framing.")
 
 
+func _test_share_selection(game: Node) -> void:
+	var empty := _test_share_payload(game)
+	_expect((empty["sailor_art"][0] as Dictionary).is_empty()
+		and empty["result"] == "DUEL INCOMPLETE",
+		"An unplayed practice duel must not invent a winner or a best-turn contour.")
+	_first_answer(game)
+	_open_player(game)
+	_draw_call(game)
+	_test_share_mesh(game, 0)
+	var first := _test_share_payload(game)
+	var mesh: Mesh = first["sailor_art"][0]["mesh"]
+	var vertices: PackedVector3Array = mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var best := float(first["sailor_art"][0]["total"])
+	game.call("_on_duel_action")
+	_open_player(game)
+	_draw_weak_call(game)
+	var later := _test_share_payload(game)
+	_expect(float(later["sailor_art"][0]["total"]) == best
+		and later["sailor_art"][0]["mesh"] == mesh,
+		"A weaker later call must not replace the earlier best completed human contour.")
+	game.call("_end_round")
+	_expect(game.call("_share_payload")["result"] == "DUEL INCOMPLETE"
+		and (game.get_node("%ResultLabel") as Label).text == "DUEL INCOMPLETE",
+		"Stopping before a duel winner must not advertise a victory in sharing or shell results.")
+	game.call("_on_play_again_pressed")
+	empty = _test_share_payload(game)
+	_expect((empty["sailor_art"][0] as Dictionary).is_empty()
+		and mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] == vertices
+		and float(first["sailor_art"][0]["total"]) == best,
+		"Replay must clear new artwork without mutating a payload an asynchronous renderer owns.")
+
+
+func _test_share_payload(game: Node) -> Dictionary:
+	var spike := game.get_node("%ScorerSpike")
+	var capture: Node = spike.get("_capture")
+	var buses := AudioServer.bus_count
+	var data: Dictionary = game.call("_share_payload")
+	_expect(spike.get("_capture") == capture and AudioServer.bus_count == buses,
+		"Preparing share data must not activate, stop or replace microphone capture.")
+	_expect(data["qr_heading"] == "DISCOVER MORE GAMES"
+		and str(data["qr_copy"]).contains("No public run record")
+		and data["stats_url"] == GameCatalog.get_manifest(Options.GAME_ID).resolved_stats_url(),
+		"The share QR must retain its actual configured destination, not promise a public run.")
+	_expect(not data.has("misses_value") and not data.has("combo_value"),
+		"Judge points must not become fictitious hit/miss or combo statistics.")
+	_expect(data["sailor_art"].size() == int(data["player_count"])
+		and data["sailor_stats"]["players"].size() == int(data["player_count"]),
+		"Opponent points may be shown, but only actual humans own portrait/stat rows.")
+	_test_share_privacy(data)
+	if bool(game.get("_practice")):
+		return data
+	var duel: Duel = game.get("_duel")
+	for singer in 2 if duel.hot_seat else 1:
+		var expected: Dictionary = {}
+		for record: Dictionary in duel.records:
+			if int(record["singer"]) == singer and (expected.is_empty()
+				or float(record["result"]["total"]) > float(expected["result"]["total"])):
+				expected = record
+		var art: Dictionary = data["sailor_art"][singer]
+		if expected.is_empty():
+			_expect(art.is_empty(),
+				"No completed human turn means no best-turn artwork, including rival/seed playback.")
+			continue
+		var paddles := PackedInt32Array()
+		for paddle: Dictionary in expected["judgement"]["paddles"]:
+			paddles.append(int(paddle["points"]))
+		var stats: Dictionary = game.call("_player_stats", singer)
+		_expect(is_equal_approx(float(art["total"]), float(stats["best_turn"]))
+			and art["answering"] == expected["result"]["answering"]
+			and int(art["tanda"]) == int(expected["tanda"]) and art["paddles"] == paddles,
+			"Each best-turn caption/paddle must follow that singer's maximum normalized score.")
+	return data
+
+
+func _test_share_mesh(game: Node, singer: int) -> void:
+	var spike := game.get_node("%ScorerSpike")
+	var expected := Ribbon.new()
+	expected.set_intense_effects(false)
+	expected.show_track(spike.get("_track"), {}, float(spike.get("_window")),
+		spike.get("_profile"), Vector3.ZERO, Vector3(3.4, 0, 0))
+	var mesh: Mesh = game.get("_best_turn_art")[singer]["mesh"]
+	var reference := expected.frozen_mesh()
+	_expect(mesh != null and reference != null
+		and mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			== reference.surface_get_arrays(0)[Mesh.ARRAY_VERTEX],
+		"Share geometry must reuse the exact admitted contour and that singer's source profile.")
+	expected.free()
+
+
+func _test_share_privacy(value: Variant) -> void:
+	if value is Dictionary:
+		for key: Variant in value:
+			_expect(str(key) not in [
+				"frames", "track", "profile", "profile_name", "voice_profile_path",
+				"chest_hz", "falsetto_low", "falsetto_high", "falsetto_calibrated",
+				"carry_level", "noise_floor", "speak_level", "device",
+				"t", "cents", "voiced", "level", "pcm",
+			], "Share data must exclude raw voice/profile field '%s'." % key)
+			_test_share_privacy(value[key])
+	elif value is Array:
+		for item: Variant in value:
+			_test_share_privacy(item)
+	elif value is Object:
+		_expect(value is Mesh, "Only frozen renderer-only meshes may accompany share scalars.")
+	elif value is String:
+		_expect(not value.contains(LOW_PROFILE) and not value.contains(HIGH_PROFILE),
+			"Selected calibration names must not leak into share text.")
+
+
 func _test_pause_and_guard(game: Node, spike: Control) -> void:
 	game.call("_on_duel_action")
 	_tick(game, 0.5)
@@ -1202,6 +1337,8 @@ func _test_missing_audio(game: Node, spike: Control) -> void:
 		and duel.call_track == reference and spike.get("_capture") == null
 		and str(game.get("_message")).contains("No microphone audio"),
 		"Missing PCM must retry the same answer with an explicit error, never minimum paddles.")
+	_expect((game.call("_share_payload")["sailor_art"][0] as Dictionary).is_empty(),
+		"A failed microphone take must not become a fabricated best share turn.")
 
 
 func _test_buffered_silence(game: Node, spike: Control) -> void:
@@ -1236,6 +1373,10 @@ func _test_practice_return(game: Node, spike: Control, hud: Control) -> void:
 		"Practice after microphone setup must restore visible, usable Remo controls.")
 	spike.call("load_example", true)
 	_expect(int(game.get("_calls")) == 1, "Practice fixtures must still exercise the scorer.")
+	var first_mesh: Mesh = game.get("_best_turn_art")[0]["mesh"]
+	spike.call("load_example", true)
+	_expect(game.get("_best_turn_art")[0]["mesh"] == first_mesh,
+		"Equal best test scores must retain the first completed contour deterministically.")
 	start.pressed.emit()
 	_send_key(KEY_SPACE)
 	spike.call("_process", 0.5)
@@ -1245,9 +1386,16 @@ func _test_practice_return(game: Node, spike: Control, hud: Control) -> void:
 	remate.pressed.emit()
 	spike.call("_process", 0.12)
 	_send_key(KEY_SPACE, false)
-	_expect(int(game.get("_calls")) == 2 and bool(spike.get("_last_result")["valid"])
+	_expect(int(game.get("_calls")) == 3 and bool(spike.get("_last_result")["valid"])
 		and (spike.get("_last_result")["evidence"]["breaks"] as Array).size() == 1,
 		"Restored Practice buttons must still make a scored Remo call.")
+	var payload := _test_share_payload(game)
+	_expect(payload["sailor_mode"] == "scorer" and payload["result"] == "SCORER SESSION"
+		and not bool(payload["sailor_stats"]["completed"])
+		and int(payload["sailor_stats"]["test_calls"]) == 3
+		and not payload["sailor_stats"].has("judge_count")
+		and str(payload["score_caption"]) == "LAST TEST SCORE / 100",
+		"Development examples must share test statistics, not fictitious judges or duel progress.")
 	(spike.get_node("%BackToDuel") as Button).pressed.emit()
 	var duel: Duel = game.get("_duel")
 	_expect(hud.visible and bool(spike.get("_duel_mode")) and duel.records.is_empty()

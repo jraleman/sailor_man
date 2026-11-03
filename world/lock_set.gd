@@ -70,10 +70,10 @@ func _build_chamber() -> void:
 			builder.cylinder(Vector3(side * 5.7, 2.40, z), 0.07, 0.35, Style.INK)
 		builder.beam(Vector3(side * 5.7, 2.55, -5.8),
 			Vector3(side * 5.7, 2.55, 5.75), 0.045, Style.INK)
-		_gate(builder, Vector3(side * 5.45, 0, -5.75), Vector3(0, 0, -4.85))
+		gate(builder, Vector3(side * 5.45, 0, -5.75), Vector3(0, 0, -4.85))
 		for z in [-2.5, 2.5]:
 			var at := Vector3(side * 6.88, 2.40, z)
-			_mula(builder, at)
+			mula(builder, at)
 			tow_anchors.append(at + Vector3(-side * 0.38, 0.05, 0))
 	builder.build(self, "ChamberAndMulas", Style.material())
 
@@ -92,7 +92,8 @@ func _build_tethers() -> void:
 	add_child(_tethers)
 
 
-func _gate(builder: Builder, hinge: Vector3, meeting: Vector3) -> void:
+## The chamber and gallery share every gate beam, rather than an imitation.
+static func gate(builder: Builder, hinge: Vector3, meeting: Vector3) -> void:
 	for y in [-1.25, 0.20, 1.80]:
 		builder.beam(hinge + Vector3.UP * y, meeting + Vector3.UP * y,
 			0.19, Style.INK)
@@ -107,7 +108,8 @@ func _gate(builder: Builder, hinge: Vector3, meeting: Vector3) -> void:
 			0.08, Style.JUNGLE)
 
 
-func _mula(builder: Builder, at: Vector3) -> void:
+## One authored rail-side toy serves the match and the close-up exhibit.
+static func mula(builder: Builder, at: Vector3) -> void:
 	builder.rounded_box(at + Vector3.UP * 0.28, Vector3(0.83, 0.59, 1.65),
 		0.10, Style.SUN)
 	builder.rounded_box(at + Vector3(0, 0.81, 0.25), Vector3(0.72, 0.60, 0.74),

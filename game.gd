@@ -22,10 +22,15 @@ static func manifest() -> GameManifest:
 	game.tunables = Options.TUNABLES
 	game.control_bindings = Options.CONTROL_BINDINGS
 	game.levels = Arenas.levels()
+	game.gallery_exhibits = Options.GALLERY_EXHIBITS
+	game.gallery_stage_scene_path = "res://games/sailor_man/gallery_stage.tscn"
 	game.stats_url = "https://deskcansaw.com"
+	game.share_art_scene_path = "res://games/sailor_man/share_art.tscn"
 	game.tutorial_video_path = "res://games/sailor_man/assets/video/tutorial.ogv"
 	game.tutorial_poster_path = "res://games/sailor_man/assets/video/tutorial_poster.webp"
 	game.copy = {
+		"gallery_intro": "Original models from free toy-canal practice. "
+			+ "No voice capture, voyage gates or reviewed cultural assets.",
 		"level_label": "Practice arena",
 		"instructions_headline": "Win two tandas by voice or Remo",
 		"instructions_rules": (
@@ -82,12 +87,13 @@ static func manifest() -> GameManifest:
 		),
 	}
 	var theme := GameTheme.new()
-	theme.logo_texture_path = "res://games/sailor_man/assets/game-icon.svg"
+	theme.logo_texture_path = "res://games/sailor_man/assets/game-icon.png"
 	theme.accent = Color("f4b941")
 	theme.light = Color("fbf2df")
 	theme.plaque_color = Color("1f2a36")
 	theme.background_top = Color("24494e")
 	theme.background_bottom = Color("132329")
+	theme.style_share_card = true
 	game.theme = theme
 	game.credits = [
 		{"heading": "Game Design & Code", "lines": ["DeskCanSaw"]},

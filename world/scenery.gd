@@ -68,7 +68,7 @@ static func _lake(parent: Node3D) -> void:
 			if tree == 1:
 				islands.beam(trunk + Vector3.UP * 1.95,
 					trunk + Vector3(0, 1.95, 0.90), 0.09, Style.WOOD)
-				_howler(howlers, trunk + Vector3(0, 1.45, 0.65))
+				howler(howlers, trunk + Vector3(0, 1.45, 0.65))
 	_landmark(islands, parent, "LakeIslands")
 	howlers.build(parent, "HowlerCanopy", Style.material())
 	var ships := Builder.new()
@@ -83,7 +83,8 @@ static func _lake(parent: Node3D) -> void:
 	ships.build(parent, "DistantShips", Style.material())
 
 
-static func _howler(builder: Builder, at: Vector3) -> void:
+## Gallery close-ups use the same monkey as the real lake canopy.
+static func howler(builder: Builder, at: Vector3) -> void:
 	var fur := Color("75452f")
 	builder.ellipsoid(at, Vector3(0.40, 0.60, 0.35), fur)
 	builder.ellipsoid(at + Vector3(0, 0.33, 0.05), Vector3(0.36, 0.36, 0.35), fur)

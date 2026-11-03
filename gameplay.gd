@@ -14,6 +14,7 @@ const Calibration = preload("res://games/sailor_man/voice/voice_calibration.gd")
 const VoiceRest = preload("res://games/sailor_man/voice/voice_rest.gd")
 const Soundcheck = preload("res://games/sailor_man/ui/soundcheck.tscn")
 const Arenas = preload("res://games/sailor_man/canal_arenas.gd")
+const Ribbon = preload("res://games/sailor_man/world/voice_ribbon.gd")
 
 @onready var _spike: Control = %ScorerSpike
 @onready var _duel_hud: Control = %DuelHud
@@ -52,6 +53,7 @@ var _soundcheck: Control
 var _voice_rest := VoiceRest.new()
 var _solo_voice_rest := _voice_rest
 var _seat_rest: Array[VoiceRest] = [VoiceRest.new(), VoiceRest.new()]
+var _best_turn_art: Array[Dictionary] = [{}, {}]
 
 
 ## Keep the manifest and shell identity on the same stable key.
@@ -123,6 +125,7 @@ func _reset_round_state() -> void:
 	_spike.call("stop_capture")
 	_calls = 0
 	_duel_seconds = 0.0
+	_best_turn_art = [{}, {}]
 	var arena := Arenas.arena(str(GameSession.selected_level().get("id", Arenas.GATUN)))
 	_hot_seat = not _practice and GameSession.player_two_enabled() \
 		and not GameSession.player_two_is_cpu()
@@ -253,6 +256,7 @@ func _on_score_ready(result: Dictionary) -> void:
 		if not error.is_empty():
 			_on_turn_cancelled(error)
 			return
+		_remember_share_turn(result, _duel.singer)
 		if _hot_seat and _duel.turn == 0:
 			_call_profile = (_spike.get("_profile") as Dictionary).duplicate(true)
 			_call_singer = _duel.singer
@@ -264,6 +268,7 @@ func _on_score_ready(result: Dictionary) -> void:
 		_update_scores()
 		_apply_phase()
 		return
+	_remember_share_turn(result, PLAYER_ONE)
 	_calls += 1
 	_scores[PLAYER_ONE] = roundi(float(result["total"]) * 100.0)
 	_update_scores()
@@ -318,6 +323,109 @@ func _round_length_seconds() -> float:
 	return super() if _practice else _duel_seconds
 
 
+func _remember_share_turn(result: Dictionary, singer: int) -> void:
+	var best := _best_turn_art[singer]
+	if not best.is_empty() and float(result["total"]) <= float(best["total"]):
+		return
+	var paddles := PackedInt32Array()
+	if not _practice:
+		for paddle: Dictionary in _duel.records[-1]["judgement"]["paddles"]:
+			paddles.append(int(paddle["points"]))
+	var ribbon := Ribbon.new()
+	ribbon.set_intense_effects(false)
+	ribbon.show_track(_spike.get("_track"), {}, float(_spike.get("_window")),
+		_spike.get("_profile"), Vector3.ZERO, Vector3(3.4, 0, 0))
+	_best_turn_art[singer] = {
+		"total": float(result["total"]), "mesh": ribbon.frozen_mesh(),
+		"tanda": 0 if _practice else _duel.tanda,
+		"answering": bool(result["answering"]),
+		"paddles": paddles,
+		"breaks": (result["evidence"]["breaks"] as Array).size(),
+		"breath": float(result["evidence"]["longest_breath"]["seconds"]),
+	}
+	ribbon.free()
+
+
+func _share_payload() -> Dictionary:
+	var data := super()
+	for key in ["accuracy_value", "hits_value", "misses_value", "combo_value"]:
+		data.erase(key)
+	var mode := "scorer" if _practice else "hot_seat" if _hot_seat else \
+		"self_echo" if _duel.echo_challenge else "skiff"
+	var arena := Arenas.arena(str(GameSession.selected_level().get("id", Arenas.GATUN)))
+	var best_parts := PackedStringArray()
+	var break_parts := PackedStringArray()
+	var breath_parts := PackedStringArray()
+	var players: Array[Dictionary] = []
+	for singer in 2 if _hot_seat else 1:
+		var best := _best_turn_art[singer]
+		var stats := _player_stats(singer) if not _practice else {
+			"best_turn": best.get("total", 0.0), "quiebres": best.get("breaks", 0),
+			"longest_breath": best.get("breath", 0.0),
+		}
+		best_parts.append("%.1f" % (float(stats["best_turn"]) * 100.0))
+		break_parts.append(str(stats["quiebres"]))
+		breath_parts.append("%.2f" % float(stats["longest_breath"]))
+		players.append({
+			"seat": singer + 1, "best_turn": float(stats["best_turn"]),
+			"quiebres": int(stats["quiebres"]),
+			"longest_breath": float(stats["longest_breath"]),
+		})
+	var opponent := "P2" if _hot_seat else "ECHO" if _duel.echo_challenge else "SKIFF"
+	var result := "DUEL INCOMPLETE" if _duel.winner < 0 else \
+		"P%d WINS THE DUEL" % (_duel.winner + 1) if _hot_seat else \
+		"P1 WINS THE DUEL" if _duel.winner == Duel.Singer.PLAYER else \
+		"FIXED ECHO WINS" if _duel.echo_challenge else "SYNTHETIC SKIFF WINS"
+	var practice_title := "HOT-SEAT PRACTICE" if _hot_seat else \
+		"SELF-ECHO PRACTICE" if _duel.echo_challenge else "SKIFF PRACTICE"
+	data.merge({
+		"mode": "%s\n%s" % [practice_title, arena["title"]],
+		"result": result,
+		"score_caption": "JUDGE POINTS / P1 / %s" % opponent,
+		"score": "%d - %d" % [_scores[PLAYER_ONE], _scores[PLAYER_TWO]],
+		"score_values": [_scores[PLAYER_ONE], _scores[PLAYER_TWO]],
+		"challenge": "TANDAS %d - %d | %d JUDGES" % [
+			_duel.wins[0], _duel.wins[1], _duel.judge_count],
+		"accuracy_caption": "P1 / P2 BEST / 100" if _hot_seat else "BEST TURN / 100",
+		"accuracy": " / ".join(best_parts),
+		"hits_caption": "P1 / P2 QUIEBRES" if _hot_seat else "QUIEBRES",
+		"hits": " / ".join(break_parts),
+		"combo_caption": "P1 / P2 ALIENTO (s)" if _hot_seat else "LONGEST ALIENTO (s)",
+		"combo": " / ".join(breath_parts),
+		"qr_heading": "DISCOVER MORE GAMES",
+		"qr_copy": "Open deskcansaw.com. No public run record is published.",
+		"cta": "PLAY THE NEXT DUEL",
+		"rematch_title": "PRACTICE, NOT A VOYAGE",
+		"rematch_copy": "Two actual singers; each ribbon is that player's best completed turn."
+			if _hot_seat else
+			"Fixed seed, neutral tone; the seed is not P1's scored best turn."
+			if _duel.echo_challenge else
+			"Synthetic practice skiff; no recorded salomero or campaign progress.",
+		"achievements": PackedStringArray(),
+		"achievement_count": 0,
+		"sailor_mode": mode,
+		"sailor_stats": {
+			"arena_id": arena["id"], "judge_count": _duel.judge_count,
+			"judge_points": _duel.points.duplicate(), "tandas_won": _duel.wins.duplicate(),
+			"winner": _duel.winner, "completed": _duel.winner >= 0, "players": players,
+		},
+		"sailor_art": _best_turn_art.slice(0, 2 if _hot_seat else 1).duplicate(true),
+	}, true)
+	if _practice:
+		data.merge({
+			"mode": "DEVELOPMENT SCORER", "result": "SCORER SESSION",
+			"score_caption": "LAST TEST SCORE / 100", "score": str(_scores[PLAYER_ONE]),
+			"score_values": [_scores[PLAYER_ONE]],
+			"challenge": "%d TEST CALLS | NOT A DUEL" % _calls,
+			"accuracy_caption": "BEST TEST / 100", "hits_caption": "BEST TEST QUIEBRES",
+			"combo_caption": "BEST TEST ALIENTO (s)",
+			"cta": "TRY REMO OR SOUNDCHECK", "rematch_title": "DEVELOPMENT SCORES ONLY",
+			"rematch_copy": "Scorer examples and test calls award no duel win or voyage progress.",
+			"sailor_stats": {"completed": false, "test_calls": _calls, "players": players},
+		}, true)
+	return data
+
+
 func _round_highlight_summary() -> String:
 	if _practice:
 		return "%d test calls checked. Real-voice validation is still pending." % _calls
@@ -335,13 +443,13 @@ func _round_highlight_summary() -> String:
 
 
 func _describe_round_outcome(_one: int, _two: int) -> Dictionary:
+	if not _practice and _duel.winner < 0:
+		return {
+			"result": "DUEL INCOMPLETE",
+			"subtitle": "Stopped before either singer won two tandas. No winner awarded.",
+			"color": Color("f4b941"),
+		}
 	if _hot_seat:
-		if _duel.winner < 0:
-			return {
-				"result": "DUEL INCOMPLETE",
-				"subtitle": "Stopped before either player won two tandas. No winner awarded.",
-				"color": Color("f4b941"),
-			}
 		return {
 			"result": "P%d WINS THE DUEL" % (_duel.winner + 1),
 			"subtitle": "Two-human practice. Tandas %d-%d; judges' points %d-%d." % [

@@ -37,6 +37,8 @@ below that depends on one should start until it is answered.
 - [x] **Hot-seat practice rules** (§3.5) — the owner chose all five current
       practice arenas and no chamber timeout, including locks. Ordinary
       listening deadlines remain; future campaign access is undecided.
+- [x] **Hot-seat share artwork** (§9.4) — the owner chose both actual singers'
+      best accepted turns, not winner-only art.
 
 ## Discrepancies found while planning
 
@@ -495,10 +497,18 @@ flow/visuals are unchanged, so its silent clip is not re-recorded.
 - [ ] `character_preview.tscn` — captain on the setup plinth.
 - [ ] Store (§9.2): Balboas, slots hat/pennant/paint/bow, starter items,
       `store_preview.tscn` covering both boat and captain.
-- [ ] Gallery (§9.3): exhibits with level gates, `gallery_stage.tscn` with
-      `configure`, `set_view` and `set_auto_spin`.
-- [ ] Share card (§9.4): `share_art.tscn`, best-turn ribbon from scorer evidence.
-- [ ] `GameTheme` (§8.3) + `assets/game-icon.png` captured from the model.
+- [x] Free prototype gallery (§9.3): eleven original boat/lock/scenery exhibits,
+      `gallery_stage.tscn` with `configure`/`set_view`, shared viewer auto-spin,
+      live orbit/zoom/reset and no voice or save state.
+- [ ] Campaign gallery: recorded rival boats, dredge/whole-canal exhibits and
+      level gates after progression, assets and cultural review.
+- [x] Free-practice share card (§9.4): `share_art.tscn`, both humans' best
+      accepted normalized-turn ribbons and actual paddles, truthful
+      solo/echo/human/scorer statistics, memory-only preview and explicit PNG.
+      Campaign-level/captain artwork remains dependent on those later features.
+- [x] Prototype `GameTheme` (§8.3) + transparent `assets/game-icon.png`,
+      captured from the actual blue launch/plain crew and synthetic Remo ribbon.
+      Final campaign identity and standalone export configuration remain later work.
 - [ ] Credits, including every recorded voice.
 - [ ] Tutorial video + poster (`tools/tutorial_driver.gd`, `record_tutorials.ps1`).
 
@@ -532,6 +542,99 @@ permission/output, acoustic-tail, browser/mobile, authentic-recording or
 cultural gate is complete. The existing silent solo Gatún tutorial's gameplay
 visuals/captions are unchanged, so it was not re-recorded. Campaign progression,
 recorded opponents, store/gallery and shipping assets remain pending.
+
+**Sharing follow-up:** both actual human best turns now dress original parked
+launches through the existing manifest/share hooks. Equal normalized totals keep
+the first accepted turn. Seeds/rivals/Repeat and failed input cannot populate
+human artwork; valid silence has no fabricated contour. Empty/incomplete duels
+and development scorer sessions have honest labels. Replay drops transient
+geometry without changing a pending card. No PCM, full pitch-frame/profile
+files or PNG text/EXIF metadata are exported; the QR remains the studio homepage,
+not a public run page or newly implemented publisher.
+
+All **12 distinct game suites**, all **15 framework suites** and all **five
+windowed checks** passed with isolated profiles and Dummy audio. The expanded
+duel suite covers selection/ties, per-seat PCM meshes, privacy, seed/rival
+exclusion, silent calls and replay. Nine rendered card cases cover both winners,
+Pacific, a real six-turn decider, skiff/echo/silence/incomplete/scorer outcomes
+and a display-only width fixture. Complete framing, actual gold/paint pixels,
+static frames, hidden-view shutdown and reversible human/solo/other-game reuse
+passed; maximum **5 draws per portrait** against a 20-draw limit.
+All **27 QR variants** decoded at full PNG, 600x315 PNG and quality-75 half
+JPEG, and all 18 PNGs had no text/EXIF chunks. Real inline preview, explicit Save
+and direct preview produced identical pixels; Save created one PNG, retained
+Open Image and the test deleted only that PNG. Every clipboard format was
+preserved/restored in memory, without logging/storing clipboard contents.
+
+Regression checks caught card overflow, hidden gold faces and the shared-shell
+score contract. The fixes retain canonical shell totals and keep legacy numeric
+hit/miss/combo checks optional for domain-stat games, without a new framework API
+or game-name branch. Existing shared-audio shutdown diagnostics and intentional
+capture/profile/backup negatives remain. Physical devices/output, acoustic
+safety, browser/mobile save/input, authentic recordings and cultural review are
+still unverified. The complete solo tutorial does not visit sharing, and its
+gameplay/captions are unchanged; no re-recording was needed.
+
+**Free-gallery follow-up:** the owner chose free access to current original
+models ahead of blocked campaign/recording work. The manifest declares eleven
+exhibits: P1 launch, synthetic skiff, human pair, mula, gate, howler and five
+practice dioramas. Actual match builders serve both paths; public static
+gate/mula/howler helpers preserve their existing geometry. The shared viewer
+owns input and auto-spin through `set_view`; the static stage deliberately
+omits an independent spin loop and the optional `set_auto_spin`.
+
+All **13 distinct game suites** and **six windowed checks** passed using
+isolated profiles and Dummy audio, without script errors. Gallery coverage
+includes canonical pre-ready configuration, explicit rejected-exhibit recovery,
+real list/model replacement, exact match mesh reuse, P1/CPU/P2 plaques,
+no audio/capture buses or save writes, and actual mouse/pad/touch camera changes.
+All **88 exhibit/size/UI renders** passed from 320x568 to ultrawide with normal/
+150% UI; full geometry/landmarks and actual pixels from every launch remained
+visible. Reset, auto-spin, reduced-motion parking and hidden-render shutdown
+passed; maximum **13 draws** against a 60-draw budget. Rendered examples were
+inspected. Both unavailable-exhibit errors are deliberate negatives.
+
+**Framework result: 14/15 suites passed.** The unchanged
+`instructions_video_test.gd` fails because the unrelated, in-progress
+`capitans_walk` manifest declares no walkthrough. Runtime inspection confirms
+Sailor's existing recording loads; its tutorial gameplay/captions are unchanged,
+so it was not re-recorded. No Capitan's Walk files or test expectations were
+changed. Existing shared-audio shutdown diagnostics remain in other suites.
+Physical devices/output, acoustic tails, browser/mobile, authentic recordings
+and cultural review remain unverified. Recorded/gated gallery content, campaign,
+store and standalone shipping remain pending.
+
+**Captured-branding follow-up:** the owner chose the blue launch's bow, plain
+crew and an illustrative gold Remo ribbon. The transparent 512x512 PNG replaces
+the temporary SVG through the existing `GameTheme`, preserving its palette and
+full-colour tint. Actual boat/ribbon builders and authored synthetic input
+render in an isolated 1024x1024 Compatibility viewport; actual mesh vertices
+frame the complete silhouette before downsampling. No human performance,
+voice profile, microphone, audio player or campaign state is used.
+`tools/capture_art.gd` now regenerates icon and all five level stills by default;
+`--only=icon`, `--only=levels` and `--output-dir=<directory>` support focused,
+non-overwriting validation. Invalid/empty selections, empty output paths and
+headless capture fail explicitly.
+
+All **14 distinct game suites**, all **15 framework suites** and **seven
+windowed checks** passed with isolated profiles and Dummy audio, without script
+errors. The earlier unrelated walkthrough failure no longer reproduces in
+the current workspace; no other game's implementation was changed here.
+The new art suite checks actual CLI output isolation/default regeneration,
+preserved level stills, transparency, full geometry framing and actual
+gold/blue pixels at 512/64/32px. The icon uses **2 draws** against a ten-draw
+limit. Actual title and standing picker pixels, shared-logo wiring and rendered
+examples were inspected. All nine share captures were refreshed: **27
+whole-card QR variants** decoded, and all **18 PNGs** passed text/EXIF absence
+and chunk-CRC checks. Preview/Save parity remains covered by the earlier opt-in
+run; it was not repeated for a theme-only change.
+
+Existing shared-audio shutdown diagnostics and intentional invalid-input
+negatives remain in other suites. Gameplay/captions did not change, so the
+tutorial was not re-recorded. This is prototype branding, not a named/recorded
+captain or culturally reviewed shipping asset. Physical-device/output,
+acoustic-tail, browser/mobile, authentic-recording and cultural gates remain
+unverified; campaign, recorded rivals, store and standalone shipping are pending.
 
 ## Milestone 9 — Polish and integration (§12)
 

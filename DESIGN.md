@@ -657,8 +657,9 @@ Aliento and the input source used.
 
 ### 7.4 Manifest sketch
 
-This is the target manifest. The scorer spike deliberately leaves opponents,
-multiplayer, levels, captains, progress files, store and gallery undeclared.
+This is the target campaign manifest. The current prototype declares free
+arenas, two-human hot seat, sharing and a free gallery, not recorded opponents,
+captains, campaign progress files or store.
 
 ```gdscript
 game.id = Options.GAME_ID                       # "sailor_man"
@@ -738,6 +739,18 @@ dawn-to-teal gradient, `style_share_card = true`, logo `assets/game-icon.png`
 Player identities keep the shared blue/red colours. The theme must not tint
 them.
 
+**Implemented prototype:** the owner chose the current blue launch's bow,
+plain crew and an illustrative synthetic Remo contour, not a recorded or named
+campaign captain. `tools/capture_art.gd` captures a transparent 512x512 PNG
+from the real boat/ribbon builders in an isolated supersampled Compatibility
+viewport. It fits actual mesh vertices, retains visible gold/blue at 32/64px
+and supplies the existing title/picker/share theme hooks without tint changes.
+The default tool refreshes icon and level stills; `--only=icon` /
+`--only=levels` select one, and `--output-dir=<directory>` isolates verification.
+Headless/invalid selections fail explicitly. No voice/profile/performance,
+audio or campaign state is used. Final campaign identity and standalone export
+configuration remain separate milestones.
+
 Traditional dress (pollera, montuno, sombrero pintao) appears on festival
 characters and in the store **as worn with pride, never as a costume gag**,
 and only after the cultural review (§12).
@@ -778,17 +791,52 @@ a conch-shell bow and a carved fish bow. Cosmetic only.
 
 ### 9.3 Gallery
 
-`GALLERY_EXHIBITS`: the *Quiebre*, each rival's boat, a mula on its rail,
+The later campaign's `GALLERY_EXHIBITS`: the *Quiebre*, each rival's boat, a mula on its rail,
 a lock gate, the howler monkey, the dredge, the festival boat and the
-"whole canal" diorama. Later items are gated by their level achievement. The
-stage implements `configure`, `set_view` and `set_auto_spin`.
+"whole canal" diorama. Later items are gated by their level achievement.
+
+**Implemented free prototype:** the owner chose freely viewable original
+models rather than waiting for campaign gates. Eleven entries show P1's launch,
+the synthetic skiff, both human launches, a rail-side mula, the actual gate
+leaves, one lake howler and the five current practice dioramas. Every model uses
+the same game-owned builders as the match, with explicit P1/CPU/P2 identity.
+No recorded crew, reviewed traditional dress, campaign access or interlude
+completion is implied.
+
+The isolated Compatibility stage implements `configure` and `set_view`.
+The shared viewer already advances auto-spin yaw through `set_view`; an
+independent stage yaw loop would double that motion. `set_auto_spin` remains
+optional for future game-owned ambient animation, not a required no-op.
+Current water, drift and crowd waves are parked. Reduced motion stops auto-spin,
+manual orbit/zoom/reset remain available, and hidden stages stop rendering.
+No microphone, voice/profile/performance data, audio players or persistence
+belongs to the gallery. The recorded rivals, dredge, whole-canal exhibit and
+achievement gates remain future campaign scope.
 
 ### 9.4 Share card
 
-The captain on the bow mid-saloma, with the ribbon of their **best turn**
-drawn across the card from real scorer evidence. The headline is the level reached,
+The target campaign places a captain on the bow mid-saloma, with the ribbon
+of their **best turn** drawn from real scorer evidence. The headline is the level reached,
 with the judges' best paddles, quiebres and Aliento below. The QR code points
 to `stats_url`.
+
+**Implemented free-practice card:** the owner chose **both singers** in hot
+seat, each with an original blue/red launch, explicit P1/P2 label, frozen best
+contour and that turn's actual paddles. Best means the highest accepted
+normalized scorer total, with the first kept on a tie. Solo/self-echo have
+only P1 artwork; neither the synthetic rival nor an unscored seed impersonates
+a second human.
+
+The headline names the actual duel outcome and arena, not a reached campaign
+level. Judge points, tandas, best scores, total Quiebres and longest Aliento
+come from that match. Silence, no completed turn, an incomplete duel and
+development scorer examples remain explicitly distinguishable. Plain crew are
+prototype models, not named/recorded captains or culturally reviewed assets.
+Art is parked in isolated Compatibility viewports and hidden views stop
+rendering. Only frozen geometry/scalar captions enter the in-memory snapshot;
+the explicit PNG export contains no audio, pitch-frame/profile files or text/
+EXIF metadata. Preview writes no image file. The current homepage QR is labelled
+**Discover more games**, with no public run record or publisher implied.
 
 ### 9.5 Accessibility (non-negotiable)
 
@@ -915,10 +963,12 @@ Game-tab button row), add data to `GameManifest`, never a game-name branch.
 ## 13. Tests — `tests/`
 
 Headless unless noted; each one is a standalone `SceneTree` script that exits 0.
-Eleven suites are implemented: the scorer, normalisation, pipeline, Remo,
+Fourteen suites are implemented: the scorer, normalisation, pipeline, Remo,
 duel state/scene, calibration, Soundcheck scene, audio, practice scene and canal
-view suites. Only `canal_view_test.gd` requires a graphics window; also run all
-three scene suites without `--headless`. They check phone-to-ultrawide rendering
+view, share-card, gallery and art-capture suites. `canal_view_test.gd` and
+`share_card_test.gd` require graphics; also run all three scene suites,
+`gallery_scene_test.gd` and `art_capture_test.gd` without `--headless`.
+They check phone-to-ultrawide rendering
 and 150% UI without requesting microphone access. Rival-book and voyage suites
 below still describe later milestones.
 
@@ -937,6 +987,9 @@ below still describe later milestones.
 | `sailor_audio_test.gd` | Original PCM headroom/DC/loop seam, real owned playback, immediate quiet contexts and combined verdict captions; duel scenes also verify actual native caption layouts and source safety |
 | `sailor_scene_test.gd` | Current prototype: opt-in capture, buffered PCM, routed Remo keyboard/gamepad/multitouch, tone/Eco, source switching, cancellation, pause/resume, results, replay and physical layouts; two-human manifest capability |
 | `canal_view_test.gd` *(window)* | All five arenas over 40 size/UI cases, both singers/water endpoints, actual paint/contour/landmark pixels, complete primary landmarks, <60 draws, pause/hidden/reduced-motion/effects |
+| `share_card_test.gd` *(window)* | Nine frozen result cases, actual gold/paint pixels, both human portraits, truthful solo/echo/incomplete/scorer labels, static/reused/hidden views and <20 draws per portrait |
+| `gallery_scene_test.gd` *(also window)* | Free list/configuration, exact match meshes, error recovery, voice/audio/save isolation; 88 native exhibit/size/UI cases, actual launch pixels, complete framing, <60 draws, mouse/pad/touch, reset/auto-spin/reduced motion and hidden rendering |
+| `art_capture_test.gd` *(also window)* | Transparent model icon, actual CLI failures/selectors/default outputs and preserved level stills; native mesh framing, 512/64/32px gold/blue pixels, <10 draws and real title/picker/share branding |
 
 The framework suites pick the game up automatically. Run them all with
 `--game=all` before calling a milestone done.

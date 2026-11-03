@@ -4,7 +4,8 @@ A saloma call-and-response game in development. The prototype offers
 **five free toy-canal arenas for synthetic-skiff practice**, plus an optional
 Culebra self-echo challenge and **two-human hot seat**, using the same scorer,
 Remo or an opt-in microphone. The finished canal campaign and recorded rival
-crews are not implemented.
+crews are not implemented. A free gallery displays eleven of the current
+original boat, lock and scenery models.
 
 ## Run the prototype
 
@@ -136,7 +137,7 @@ Both boats retain blue/red paint, pennants and explicit **P1 / CPU**, **ECHO**
 or **P2** labels appropriate to the selected mode.
 Their plain toy crew imply no named captain or traditional costume. The same
 boat rig exposes empty hat/bow attachment slots for later cosmetics; no shop
-or gallery is implemented.
+is implemented.
 
 The camera eases modestly toward the performing singer while keeping both
 complete boats in shot. The admitted pitch track unrolls from the crew's
@@ -157,14 +158,50 @@ These are compressed toy interpretations, not a simulator or reviewed factual
 reconstructions. Cruise music, campaign encounters/progression and cultural
 review remain future work.
 
-The setup's five 640x360 PNG icons are captured from these same real meshes,
-not separate promotional drawings. Regenerate them from `godot-base/` with a
-graphics window, then reimport:
+## Captured prototype art
+
+The transparent 512x512 game icon shows the owner-selected blue launch's bow,
+plain crew and illustrative gold Remo ribbon. It uses the actual boat/ribbon
+builders and synthetic input, never a person's performance or voice profile.
+The existing palette and full-colour logo tint are unchanged. This replaces
+the temporary SVG on the title cartridge, picker and shared cards; it is not
+a named campaign captain, reviewed traditional dress or final shipping art.
+
+The setup's five 640x360 PNG previews also come from the real arena meshes,
+not separate promotional drawings. Regenerate the icon **and** all five stills
+from `godot-base/` with a graphics window, then reimport:
 
 ```powershell
 godot --audio-driver Dummy --path . --script res://games/sailor_man/tools/capture_art.gd -- --game=all
 godot --headless --path . --import
 ```
+
+Append `--only=icon` or `--only=levels` after `--` to regenerate just that
+selection. `--output-dir=<directory>` redirects the icon and `levels/` folder
+for inspection without overwriting the checked-in assets. Empty/unknown
+selectors, empty output paths and headless capture fail explicitly.
+The icon's isolated 1024x1024 Compatibility render is downsampled to 512px
+and framed from actual vertices, independently of the OS window size.
+No microphone, audio player, calibration or duel is opened.
+
+## Free prototype gallery
+
+Open **Gallery** from the standalone title screen or the running game's pause
+menu. All eleven exhibits are free: P1's launch, the synthetic skiff, both
+human launches, a mula on rails, the gate leaves, one canopy howler and all
+five practice dioramas. These are the match's actual meshes, not replacement
+promotional models, recorded crews or culturally reviewed assets.
+
+The shared viewer supplies mouse/touch/keyboard/gamepad orbit, zoom and reset,
+with descriptions and input help in tooltips. It also advances auto-spin through
+the stage's `set_view`; `gallery_stage.tscn` implements `configure` and `set_view`,
+not a second spin loop or a redundant `set_auto_spin`. Reduced motion parks
+auto-spin while retaining manual inspection. Water, drift and crowd waves are
+static, and hidden exhibits stop their private Compatibility rendering.
+
+The stage reads no voice profile or performance, opens no microphone, creates
+no audio players and writes no progress or options. Recorded rival boats,
+the dredge, whole-canal exhibit and achievement gates remain campaign work.
 
 ## Culebra self-echo challenge
 
@@ -330,6 +367,34 @@ its final PCM and finishes over subsequent updates without dropping samples
 or blocking on the whole take. Offline analysis remains unlimited. This is
 automated bounded-processing coverage, not browser/device performance QA.
 
+## Share cards
+
+**See Scores** previews the same 1200x630 card that **Save Image** explicitly
+writes/downloads as PNG. Preview alone creates no image file. The existing
+desktop **Open Image** action remains available after saving.
+
+Hot seat features **both singers**, not just the winner: original blue/red
+launches, P1/P2 labels and each person's best accepted turn ribbon with its
+actual judge paddles. Best means the highest normalized scorer total;
+equal totals keep the first turn. The other statistics show actual judge
+points, tandas won, best normalized scores, accumulated Quiebres and longest
+Aliento. Solo and self-echo feature only P1, with the synthetic opponent clearly
+identified in the score labels. Seeds and Repeat never become scored best turns.
+
+Valid captured silence has an explicit silent-turn caption and no invented
+contour. No completed turn, an incomplete duel and development scorer examples
+also have distinct labels; none imply a winner or campaign progress.
+Artwork is always parked, with isolated Compatibility lighting and no
+decorative animation or review sparks. Hidden portraits stop rendering.
+
+Only frozen geometry and scalar captions enter the in-memory artwork snapshot.
+Replay drops it without mutating an already requested card. The saved PNG shows
+the ribbon, but exports no PCM, full pitch-frame/profile files or text/EXIF
+metadata. `sailor_stats` contains domain statistics; `sailor_art` is renderer-only
+geometry, not a payload for a future publisher.
+The QR currently opens **https://deskcansaw.com**, labelled **Discover more
+games**. No public run record is published; there is no new stats endpoint.
+
 ## Implemented
 
 - One node-free scorer for normalized 100 Hz tracks: Aliento, Quiebre,
@@ -349,6 +414,10 @@ automated bounded-processing coverage, not browser/device performance QA.
   profile/source/rest state, guarded real input and untimed practice arenas.
 - Original boats, numeric P1/CPU/ECHO/P2 paddles, source-relative world ribbons,
   captions and responsive duel/input presentation.
+- Frozen share portraits for both actual humans, truthful duel/test statistics
+  and the shell's memory-only preview / explicit PNG save.
+- Eleven free original-model gallery exhibits through the shared viewer,
+  with live orbit/zoom/reset, reduced-motion parking and no voice or save state.
 - Original owned canal SFX, microphone-quiet ambience rules and combined,
   responsive audio captions; no cruise music or performer samples.
 - Guided Soundcheck, named scalar profiles, saved source choice, optional
@@ -426,8 +495,9 @@ record approved real-voice numbers in `TODO.md` only after that review.
 
 ## Validation and limits
 
-Eleven suites cover the scorer, low/high-register equivalence, synthesized PCM,
-Remo parity, duel rules, calibration/persistence, canal audio and real scene/3D paths.
+Fourteen suites cover the scorer, low/high-register equivalence, synthesized PCM,
+Remo parity, duel rules, calibration/persistence, canal audio, real scene/3D
+paths, rendered sharing, the free gallery and captured prototype branding.
 Use `--audio-driver Dummy` for automated runs:
 
 ```powershell
@@ -441,15 +511,23 @@ godot --headless --path . --script res://games/sailor_man/tests/sailor_scene_tes
 godot --headless --path . --script res://games/sailor_man/tests/voice_calibration_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 godot --headless --path . --script res://games/sailor_man/tests/sailor_audio_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/gallery_scene_test.gd -- --game=all
+godot --headless --path . --script res://games/sailor_man/tests/art_capture_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/duel_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/sailor_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/soundcheck_scene_test.gd -- --game=all
 godot --path . --script res://games/sailor_man/tests/canal_view_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/share_card_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/gallery_scene_test.gd -- --game=all
+godot --path . --script res://games/sailor_man/tests/art_capture_test.gd -- --game=all
 ```
 
-The first ten suites support headless runs. `canal_view_test.gd` requires
-a real graphics window and deliberately exits 1 with `--headless`.
-The four windowed runs check real rendering at 320x568, 568x320, 1280x720
+The first twelve suites support headless runs. `canal_view_test.gd` and
+`share_card_test.gd` require a real graphics window and deliberately exit 1
+with `--headless`. Also run the three scene suites, gallery and art-capture
+suites with a window: seven windowed checks in total.
+Scene/canal/gallery checks cover rendering at
+320x568, 568x320, 1280x720
 and 2560x1080 with normal and 150% UI size. Tests do not enable a physical
 microphone. Buffered-PCM regressions distinguish absent data from actual
 silence, check stall recovery and resumed buffers, and verify that pause/error
@@ -491,6 +569,24 @@ both lock deadlines/water directions, free repeats without ghost lock geometry,
 drift-attached contours, all five actual judge rows/maxima, and a complete
 five-judge Remo win through shell results/replay.
 
+Gallery checks select every real shared-menu row, compare its meshes with the
+match, verify CPU/P1/P2 identity and reject unknown exhibits before and after
+ready without stale models. They check no audio/capture buses or save writes,
+actual mouse/pad/touch camera changes, reset, shared auto-spin, reduced motion
+and hidden-view shutdown. Native coverage is **88 exhibit/size/UI cases**,
+including whole geometry/landmark framing and actual pixels from every launch,
+with a measured maximum of **13 draw calls** against the 60-draw budget.
+Pass `--sailor-gallery-capture-dir=<absolute directory>` after `--` for captures.
+The two unavailable-exhibit errors are intentional rejection tests.
+
+Art checks verify transparency, real CLI rejection paths, icon-only/levels-only
+output isolation and default regeneration in a temporary directory. Native
+checks reproduce the icon, preserve the five level stills and inspect actual
+gold/blue pixels at 512, 64 and 32 pixels, with two measured draws against a
+ten-draw limit. The actual title, standing picker cartridge and share texture
+use the PNG without a colour tint. Pass
+`--sailor-icon-capture-dir=<absolute directory>` after `--` for inspections.
+
 Self-echo checks cover rejected/paused/missing seeds, the complete 600 ms gap,
 frozen profiles/Quiet Mode, discarded idle PCM, softer synthetic playback,
 delayed repeats and restarted/captioned returns after pause. A real buffered-PCM
@@ -510,6 +606,22 @@ capture without a tree exit/restart or changing P1's profile/source.
 All eight size/UI combinations cover both singers' handoff, live and review,
 including scroll-accessible profiles, Ready after layout changes and actual P2
 touch/gamepad input. These checks use Dummy audio, not physical devices.
+
+Sharing checks cover accepted-best selection/ties, per-seat PCM geometry,
+privacy, replay, silent/incomplete calls and seed/rival exclusion. The native
+suite renders six complete input-driven duels, incomplete/scorer cases and a
+display-only width fixture, with complete boats, visible gold and readable statistics,
+static frames, isolated worlds and reversible human/solo/other-game card reuse.
+Its measured maximum is **5 draws per portrait**, below the 20-draw limit.
+All **27 final QR variants** decoded: full PNG, 600x315 PNG and quality-75
+600x315 JPEG for nine cards. All 18 PNGs contained no text/EXIF metadata.
+The real shell preview, explicit Save and direct preview produced identical PNG
+pixels. No browser/mobile save or physical-device gate is thereby passed.
+Pass `--sailor-share-capture-dir=<absolute directory>` after `--` for captures.
+The default suite never saves a share PNG or changes the clipboard.
+`--sailor-test-save` opts into the real Save action; use isolated user data and
+preserve/restore the desktop clipboard, because the existing Save copies the
+image path. That check removes only the PNG it creates.
 
 Soundcheck checks feed synthesized PCM through the real wizard, detector and
 normalizer, including a queued Stop, observed versus skipped high band,
