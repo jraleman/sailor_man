@@ -64,17 +64,24 @@ var _singer := -1
 var _use_microphone := false
 var _preference := 1.0
 var _ui_unit := 0.0
+var details: VBoxContainer
+var help_host: HBoxContainer
+var help_button: Button
+var _source_tray: VBoxContainer
+var _judge_summary: Label
+var _hot_seat := false
 
 
 func _ready() -> void:
 	var background := StyleBoxFlat.new()
-	background.bg_color = Color("15242b")
+	background.bg_color = Color("15242b", 0.12)
 	add_theme_stylebox_override("panel", background)
 	_margins = MarginContainer.new()
 	add_child(_margins)
 	_frame = VBoxContainer.new()
 	_margins.add_child(_frame)
 	var header := HBoxContainer.new()
+	help_host = header
 	_frame.add_child(header)
 	_turn = _label(header, "Turn", "SAILOR MAN - PRACTICE DUEL")
 	_turn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -103,8 +110,10 @@ func _ready() -> void:
 		func() -> void: soundcheck_requested.emit())
 	_echo = _button(_actions, "EchoChallenge", "Challenge your echo",
 		func() -> void: echo_requested.emit())
+	_source_tray = VBoxContainer.new()
+	column.add_child(_source_tray)
 	_sources = HFlowContainer.new()
-	column.add_child(_sources)
+	_source_tray.add_child(_sources)
 	_auto_button = _button(_sources, "UseAuto", "Auto",
 		func() -> void: auto_source_requested.emit())
 	_remo_button = _button(_sources, "UseRemo", "Remo",
@@ -112,7 +121,7 @@ func _ready() -> void:
 	_mic_button = _button(_sources, "UseMicrophone", "Microphone",
 		func() -> void: source_requested.emit(true))
 	_profile_row = VBoxContainer.new()
-	column.add_child(_profile_row)
+	_source_tray.add_child(_profile_row)
 	_profile_title = _label(_profile_row, "SeatProfileTitle", "")
 	_profiles = OptionButton.new()
 	_profiles.name = "SeatVoiceProfile"
@@ -142,21 +151,26 @@ func _ready() -> void:
 	_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_body.add_child(_info)
-	var details := VBoxContainer.new()
-	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_info.add_child(details)
+	var stage_column := VBoxContainer.new()
+	stage_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_info.add_child(stage_column)
+	lock = Canal.new()
+	lock.custom_minimum_size.y = 220
+	lock.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage_column.add_child(lock)
+	_judge_summary = _label(stage_column, "JudgeSummary", "")
+	_judge_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_rival_description = _label(stage_column, "RivalDescription", "Synthetic rival")
+	details = VBoxContainer.new()
+	stage_column.add_child(details)
 	_judge_box = VBoxContainer.new()
 	details.add_child(_judge_box)
 	_set_panel(3)
 	_canal_caption = _label(details, "CanalCaption", str(_arena["caption"]))
-	lock = Canal.new()
-	lock.custom_minimum_size.y = 220
-	details.add_child(lock)
 	_rival_ribbon = Ribbon.new()
 	_rival_ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	details.add_child(_rival_ribbon)
-	_rival_description = _label(details, "RivalDescription",
-		"Practice skiff - synthetic tone and authored track, not a saloma recording.")
 	_prototype_notice = _label(details, "PrototypeNotice",
 		"Best of three tandas. Ties go to the answerer. The chamber clock pauses "
 		+ "inside performances. No lives or progress are lost. Real voices, cultural "
@@ -290,6 +304,7 @@ func present(
 	_phase = state.phase
 	_singer = state.singer
 	_use_microphone = microphone
+	_hot_seat = state.hot_seat
 	var opponent := "P2" if state.hot_seat else ("ECHO" if state.echo_challenge else "CPU")
 	var role := "SEED" if state.preparing_seed else ("CALL" if state.turn == 0 else "ANSWER")
 	var actor := "P1" if state.singer == Duel.Singer.PLAYER else opponent
@@ -311,24 +326,25 @@ func present(
 			maxf(state.window_seconds - state.window_elapsed, 0.0),
 		]
 	elif state.phase == Duel.Phase.READY:
-		_turn.text = "SAILOR MAN - PRACTICE DUEL"
+		_turn.text = "Practice / " + ("Microphone" if microphone else "Remo")
 	elif state.phase == Duel.Phase.COMPLETE:
 		_turn.text = "P1 WINS" if state.winner == Duel.Singer.PLAYER else opponent + " WINS"
 	elif state.phase == Duel.Phase.ECHO_WAIT:
 		_turn.text = "YOUR ECHO RETURNS - 600 ms"
 	elif state.hot_seat and state.phase == Duel.Phase.REPEAT:
 		_turn.text = "P%d CALL REPLAY - %s ANSWERS NEXT" % [2 - state.singer, actor]
-	var clock := "Chamber %d:%02d" % [
+	var clock := "%d:%02d" % [
 		int(ceil(state.chamber_left)) / 60, int(ceil(state.chamber_left)) % 60,
 	]
-	_clock.text = "Tandas P1 %d - %d %s | %s" % [
-		state.wins[0], state.wins[1], opponent,
-		clock if state.uses_chamber_clock else (
-			"Hot seat - no chamber deadline" if state.hot_seat
-			else "Open water - no chamber deadline"),
-	]
+	_clock.text = "P1 %d : %d %s" % [state.wins[0], state.wins[1], opponent]
+	if state.uses_chamber_clock:
+		_clock.text += " / " + clock
+	_clock.tooltip_text = "Tandas won. " + (
+		"Chamber " + clock if state.uses_chamber_clock else "No chamber deadline.")
 	if state.preparing_seed:
 		_clock.text = "Seed setup | %.0f s window" % state.window_seconds
+		_clock.tooltip_text = "Unscored seed. %.0f second performance window." % state.window_seconds
+	_clock.accessibility_description = _clock.tooltip_text
 	_caption.text = message
 	primary.disabled = state.phase in [
 		Duel.Phase.RIVAL, Duel.Phase.REPEAT, Duel.Phase.GUARD, Duel.Phase.LISTENING,
@@ -369,23 +385,26 @@ func present(
 	_rest_offer.visible = rest_due and (state.phase in [Duel.Phase.READY, Duel.Phase.COMPLETE]
 		or ((state.preparing_seed or (state.hot_seat and state.tanda == 1))
 			and state.phase == Duel.Phase.PLAYER_READY))
-	_rival_description.text = (
+	_rival_description.tooltip_text = (
 		"Your echo uses a frozen seed contour and neutral synthetic tone, "
 		+ "never recorded or live microphone audio."
 	) if state.echo_challenge else (
 		"Practice skiff - synthetic tone and authored track, not a saloma recording.")
+	_rival_description.text = "Synthetic echo" if state.echo_challenge else "Synthetic rival"
 	lock.boats[Duel.Singer.RIVAL].plaque.text = opponent
 	_canal_caption.text = "%s - self-echo challenge." % _arena["title"] \
 		if state.echo_challenge else str(_arena["caption"])
 	if state.hot_seat:
-		_rival_description.text = "Two human singers share this device. Repeat plays only "
-		_rival_description.text += "the completed pitch contour as a neutral tone, not recorded voice."
+		_rival_description.tooltip_text = "Two human singers share this device. Repeat plays only "
+		_rival_description.tooltip_text += "the completed pitch contour as a neutral tone, not recorded voice."
+		_rival_description.text = "Two humans"
 		_canal_caption.text = "%s - two-human practice; no chamber deadline." % _arena["title"]
 		_prototype_notice.text = "Pass the mic and choose your own profile/source before Ready. "
 		_prototype_notice.text += "Both players use the same guarded call deadlines. "
 		_prototype_notice.text += "No lives, voyage progress, microphone audio or tracks are saved."
 	_set_panel(state.judge_count)
 	var panel := Judges.panel(state.judge_count)
+	var paddles := PackedStringArray()
 	for index in _judges.size():
 		var judge := panel[index]
 		var p1 := "-"
@@ -403,6 +422,12 @@ func present(
 		_judges[index].text = "%s | %s x1.5 | P1 %s / %s %s\n%s" % [
 			judge["badge"], str(judge["taste"]).capitalize(), p1, opponent, cpu, note,
 		]
+		paddles.append("%s:%s" % [p1, cpu])
+	_judge_summary.text = "   ".join(paddles)
+	_judge_summary.visible = not state.records.is_empty()
+	_judge_summary.accessibility_description = "\n".join(
+		_judges.map(func(label: Label) -> String: return label.text))
+	_rival_description.accessibility_description = _rival_description.tooltip_text
 	var visible_singer := 1 - state.singer \
 		if state.hot_seat and state.phase == Duel.Phase.REPEAT else state.singer
 	lock.present(state.chamber_fraction(), visible_singer if state.phase in [
@@ -462,20 +487,26 @@ func _fit() -> void:
 	_body.custom_minimum_size.y = 0.0 if listening else 220.0 * unit
 	_actions.visible = not listening
 	_sources.visible = _sources.visible and not listening
+	_source_tray.visible = details.visible or _hot_seat or _use_microphone
 	_clock.visible = not listening
 	_caption.visible = not listening
 	lock.custom_minimum_size.y = (220.0 if wide else 150.0) * unit
 	_rival_ribbon.custom_minimum_size.y = 140.0 * unit
 	_rival_ribbon.fit(unit)
+	if help_button != null:
+		help_button.disabled = listening
 	if is_equal_approx(unit, _ui_unit):
 		return
 	_ui_unit = unit
 	for node: Node in find_children("*", "Control", true, false):
 		var control := node as Control
 		if control is Label or control is BaseButton:
-			control.add_theme_font_size_override("font_size", roundi(17.0 * unit))
+			control.add_theme_font_size_override("font_size", roundi(14.0 * unit))
 		if control is BaseButton:
 			control.custom_minimum_size.y = 44.0 * unit
+			if control is Button and control.icon != null:
+				control.custom_minimum_size.x = 44.0 * unit
+				control.add_theme_constant_override("icon_max_width", roundi(22 * unit))
 		if control is BoxContainer:
 			control.add_theme_constant_override("separation", roundi(8.0 * unit))
 		if control is HFlowContainer:
@@ -505,6 +536,12 @@ func _button(parent: Node, name: String, text: String, action: Callable) -> Butt
 	var button := Button.new()
 	button.name = name
 	button.text = text
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+		if style != null:
+			style.bg_color.a = 0.18 if state == "normal" else 0.4
+			style.border_color.a = 0.25
+			button.add_theme_stylebox_override(state, style)
 	button.pressed.connect(action)
 	parent.add_child(button)
 	button.owner = self

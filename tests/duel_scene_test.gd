@@ -197,7 +197,8 @@ func _test_hot_seat(packed: PackedScene) -> void:
 			and duel.judge_count == int(arena["judges"]) and spike.get("_capture") == null
 			and (game.get("_rival") as Dictionary).is_empty()
 			and not (hud.get_node("%EchoChallenge") as Button).visible
-			and (hud.get("_clock") as Label).text.contains("Hot seat - no chamber deadline"),
+			and (hud.get("_clock") as Label).tooltip_text.contains("No chamber deadline")
+			and (hud.get("_rival_description") as Label).text == "Two humans",
 			"Every hot-seat arena must wait for actual P1/P2 input, without a clock or fake rival.")
 		_expect((canal.get("boats")[1].get("plaque") as Label3D).text == "P2"
 			and (hud.get("_judges")[0] as Label).text.contains("/ P2"),
@@ -682,8 +683,10 @@ func _test_arenas(game: Node, spike: Control, hud: Control) -> void:
 			_expect(duel.phase == Duel.Phase.REVIEW and duel.chamber_left == before
 				and is_equal_approx(surface.position.y, initial_height)
 				and not chamber.has_node("ChamberAndMulas") and not chamber.has_node("TowLines")
-				and (hud.get("_clock") as Label).text.contains("no chamber deadline"),
-				"Open water must be untimed, level, visibly labelled and free of ghost lock walls.")
+				and (hud.get("_clock") as Label).tooltip_text.contains("No chamber deadline")
+				and (hud.get("_clock") as Label).accessibility_description.contains(
+					"No chamber deadline"),
+				"Open water must stay untimed, level, described and free of ghost lock walls.")
 			game.call("_on_duel_action")
 			game.call("_on_repeat")
 			_expect(_canal_silent(game), "Even a free Repeat must silence canal effects.")
@@ -707,10 +710,20 @@ func _test_arenas(game: Node, spike: Control, hud: Control) -> void:
 				and not (audio.get_node("MulaBell") as AudioStreamPlayer).playing
 				and (audio.get_node("Applause") as AudioStreamPlayer).playing,
 				"Real Remo must score/display every Pacific judge, correct maxima and no lock bell.")
+			var summary := hud.get("_judge_summary") as Label
+			_expect(summary.is_visible_in_tree()
+				and summary.text.split("   ").size() == paddles.size(),
+				"The compact HUD must retain every actual paddle while details are folded.")
+			var expanded := bool(game.call("hud_controls_expanded"))
+			if not expanded:
+				(game.get_node("%HudHelpButton") as Button).pressed.emit()
 			for index in labels.size():
 				_expect((labels[index] as Label).is_visible_in_tree()
-					and (labels[index] as Label).text.contains("P1 %s" % paddles[index]["points"]),
-					"Every actual judge paddle must reach a labelled HUD row.")
+					and (labels[index] as Label).text.contains("P1 %s" % paddles[index]["points"])
+					and summary.accessibility_description.contains((labels[index] as Label).text),
+					"Help and the compact summary must describe every actual judge paddle.")
+			if not expanded:
+				(game.get_node("%HudHelpButton") as Button).pressed.emit()
 		game.call("_return_to_duel")
 		if str(arena["id"]) == Arenas.PACIFIC:
 			_test_remo_win(game, spike, hud)
@@ -731,7 +744,8 @@ func _test_self_echo(game: Node, spike: Control, hud: Control) -> void:
 	var duel: Duel = game.get("_duel")
 	_expect(duel.echo_challenge and duel.preparing_seed and duel.records.is_empty()
 		and spike.get("_capture") == null and (game.get("_rival") as Dictionary).is_empty()
-		and (hud.get("_turn") as Label).text.contains("UNSCORED"),
+		and (hud.get("_turn") as Label).text.contains("UNSCORED")
+		and (hud.get("_clock") as Label).accessibility_description.begins_with("Unscored seed"),
 		"Choosing self-echo must ask for an unscored seed without opening a microphone.")
 	_expect(int(game.call("_round_points_earned", 999, 999)) == 0,
 		"An unscored seed cannot earn Balboas, even with stale shell score arguments.")

@@ -103,6 +103,10 @@ func _build_playfield() -> void:
 	_duel_hud.connect("rest_remo_requested", _on_rest_remo)
 	_duel_hud.connect("practice_requested", _open_practice)
 	_duel_hud.connect("pause_requested", open_pause_menu)
+	mount_hud_help(_duel_hud.get("help_host") as Control)
+	_duel_hud.set("help_button", _hud_help_button)
+	register_hud_controls(_duel_hud.get("details") as Control,
+		Callable(_duel_hud, "_fit"), false)
 	Store.equipped_changed.connect(_on_outfit_changed)
 	_rival_tone = Tone.new()
 	add_child(_rival_tone)

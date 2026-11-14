@@ -370,7 +370,9 @@ In a duel, press **Ready** and wait for **YA!**; in Practice, choose
 | Remate | K | B | Flick down to finish |
 
 The five Remo keys are rebindable under **Settings -> Controls**;
-the on-screen hints follow the current bindings. Arrows and gamepad controls
+the on-screen hints behind **Help** follow the current bindings. Source/profile
+selection, microphone consent, synthetic-opponent disclosure and live warnings
+remain visible without Help. Arrows and gamepad controls
 are fixed extras. You can also hold/drag with the mouse and click Break or
 Remate. In Practice, touching the ribbon starts a window without first
 pressing Start, and a fresh Voice press starts another turn while it has focus.
