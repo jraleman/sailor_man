@@ -207,19 +207,20 @@ func _test_branding() -> void:
 	settings.call("_update_content_scale")
 	var manifest := Manifest.manifest()
 	var logo := manifest.theme.logo_texture()
+	var cover := manifest.theme.cover_texture()
 	GameCatalog.restrict_to(Options.GAME_ID)
 	var menu := (load("res://scenes/menus/main_menu.tscn") as PackedScene).instantiate()
 	get_root().add_child(menu)
 	await _settle()
 	var face := menu.get_node("%Face") as Sprite3D
-	_expect(face.texture == logo and face.modulate == Color.WHITE,
-		"The standalone title must use the model PNG without recolouring its blue paint.")
+	_expect(cover != null and face.texture == cover and face.modulate == Color.WHITE,
+		"The standalone title must use the practice cover without recolouring its blue paint.")
 	var title_image := get_root().get_texture().get_image()
 	_capture(title_image, "icon-title.png")
 	face.hide()
 	await _settle()
 	_expect(_pixel_changes(title_image, get_root().get_texture().get_image()) > 12,
-		"The model icon must actually render on the title's 3D cartridge.")
+		"The practice cover must actually render on the title's 3D cartridge.")
 	menu.queue_free()
 	await _settle()
 	GameCatalog.clear_restriction()
@@ -231,8 +232,9 @@ func _test_branding() -> void:
 	for node in picker.get_node("%Track").get_children():
 		if node.has_method("game_id") and str(node.call("game_id")) == Options.GAME_ID:
 			found = true
-			_expect(node.get("_logo") == logo and node.get("_logo_color") == Color.WHITE,
-				"The collection cartridge must use the same full-colour model icon.")
+			_expect(node.get("_cover") == cover and node.get("_logo") == logo
+				and node.get("_logo_color") == Color.WHITE,
+				"The collection must keep separate practice-cover and model-icon resources.")
 	_expect(found, "The collection must retain the actual Sailor cartridge.")
 	_capture(get_root().get_texture().get_image(), "icon-picker.png")
 	picker.call("_browse", -1)
@@ -241,11 +243,11 @@ func _test_branding() -> void:
 		if node.has_method("game_id") and str(node.call("game_id")) == Options.GAME_ID:
 			var standing := get_root().get_texture().get_image()
 			_capture(standing, "icon-picker-standing.png")
-			node.set("_logo", null)
+			node.set("_cover", null)
 			node.call("_redraw_all")
 			await _settle()
 			_expect(_pixel_changes(standing, get_root().get_texture().get_image()) > 12,
-				"The standing cartridge must actually draw the new logo, not only store it.")
+				"The standing cartridge must actually draw the cover, not only store its path.")
 	picker.queue_free()
 	await _settle()
 	var card := (load("res://ui/components/share_card.tscn") as PackedScene).instantiate()

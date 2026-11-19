@@ -124,6 +124,7 @@ static func manifest() -> GameManifest:
 	}
 	var theme := GameTheme.new()
 	theme.logo_texture_path = "res://games/sailor_man/assets/game-icon.png"
+	theme.cover_texture_path = "res://games/sailor_man/assets/cover.png"
 	theme.accent = Color("f4b941")
 	theme.light = Color("fbf2df")
 	theme.plaque_color = Color("1f2a36")

@@ -259,8 +259,15 @@ The transparent 512x512 game icon shows the owner-selected blue launch's bow,
 plain crew and illustrative gold Remo ribbon. It uses the actual boat/ribbon
 builders and synthetic input, never a person's performance or voice profile.
 The existing palette and full-colour logo tint are unchanged. This replaces
-the temporary SVG on the title cartridge, picker and shared cards; it is not
-a named campaign captain, reviewed traditional dress or final shipping art.
+the temporary SVG for icon/share branding and remains the cartridge fallback;
+it is not a named campaign captain, reviewed traditional dress or final shipping art.
+
+The title and parked picker now use a separate 1024-square `assets/cover.png`:
+the actual blue/red practice launches and plain crews, with a **Canal practice**
+caption. `tools/cover_art.gd` stages those same rigs without a microphone,
+profile or duel. Regenerate it from the host with a graphics window:
+`godot --path . --script res://tools/render_covers.gd -- --game=all --games=sailor_man`.
+This cover leaves the original icon, share branding and level stills unchanged.
 
 The setup's five 640x360 PNG previews also come from the real arena meshes,
 not separate promotional drawings. Regenerate the icon **and** all five stills
@@ -716,8 +723,8 @@ Art checks verify transparency, real CLI rejection paths, icon-only/levels-only
 output isolation and default regeneration in a temporary directory. Native
 checks reproduce the icon, preserve the five level stills and inspect actual
 gold/blue pixels at 512, 64 and 32 pixels, with two measured draws against a
-ten-draw limit. The actual title, standing picker cartridge and share texture
-use the PNG without a colour tint. Pass
+ten-draw limit. The actual title and standing picker use the separate practice
+cover, while shares retain the original icon; neither receives a colour tint. Pass
 `--sailor-icon-capture-dir=<absolute directory>` after `--` for inspections.
 
 Setup-preview checks use the real shared menu in collection and standalone,
